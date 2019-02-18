@@ -1,0 +1,19 @@
+[package]
+name = "poldercast"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>"]
+edition = "2018"
+readme = "README.md"
+repository = "https://github.com/primetype/poldercast"
+homepage = "https://github.com/primetype/poldercast#README.md"
+keywords = [ "P2P", "Topology" ]
+
+[dependencies]
+multiaddr = "0.3"
+rand_core = "0.4"
+rand_os = "0.1"
+
+[dev-dependencies]
+rand_chacha = "0.1"
+quickcheck = "0.8"
