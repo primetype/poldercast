@@ -1,3 +1,11 @@
+//! Topology of the poldercast overlay.
+//!
+//! In other words: how the nodes are connected to each other, how the will be
+//! maintaining the links between them.
+//!
+//! The [`Topology`] object is maintaining the relative local topology of the
+//! given Node.
+//!
 mod cyclon;
 mod module;
 mod ring;

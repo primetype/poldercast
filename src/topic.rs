@@ -211,3 +211,46 @@ impl AsRef<[u8]> for Topic {
         self.0.as_ref()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+
+    impl Arbitrary for Topic {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            Topic::from(u128::arbitrary(g))
+        }
+    }
+
+    impl Arbitrary for InterestLevel {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            match u8::arbitrary(g) % 3 {
+                0 => InterestLevel::Low,
+                1 => InterestLevel::Normal,
+                _ => InterestLevel::High,
+            }
+        }
+    }
+
+    impl Arbitrary for Subscription {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            Subscription {
+                topic: Topic::arbitrary(g),
+                interest_level: InterestLevel::arbitrary(g),
+            }
+        }
+    }
+
+    impl Arbitrary for Subscriptions {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            let subscriptions: Vec<Subscription> = Arbitrary::arbitrary(g);
+
+            let mut subs = Subscriptions::new();
+            for subscription in subscriptions {
+                subs.add(subscription);
+            }
+            subs
+        }
+    }
+}

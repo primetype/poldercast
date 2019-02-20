@@ -28,8 +28,31 @@ impl Address {
     }
 }
 
+impl std::str::FromStr for Address {
+    type Err = <Multiaddr as std::str::FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse().map(Address)
+    }
+}
+
 impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+
+    impl Arbitrary for Address {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            let ip: (u8, u8, u8, u8) = Arbitrary::arbitrary(g);
+            let port: u16 = Arbitrary::arbitrary(g);
+            let address = format!("/ip4/{}.{}.{}.{}/tcp/{}", ip.0, ip.1, ip.2, ip.3, port);
+            address.parse().unwrap()
+        }
     }
 }

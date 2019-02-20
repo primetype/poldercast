@@ -5,6 +5,11 @@ use crate::{topology::Module, Id, Node};
 
 pub const CYCLON_MAX_GOSSIPING_LENGTH: usize = 128;
 
+/// this module is responsible for randomly selecting Nodes
+/// to be gossiped to another node.
+///
+/// It also make sure we contact the least contacted node for the next
+/// gossiping round.
 #[derive(Clone, Debug)]
 pub struct Cyclon;
 impl Cyclon {
