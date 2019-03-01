@@ -24,7 +24,7 @@ pub struct Topology {
 
     known_nodes: BTreeMap<Id, Node>,
 
-    modules: BTreeMap<&'static str, Box<dyn Module>>,
+    modules: BTreeMap<&'static str, Box<dyn Module + Send + Sync>>,
 }
 
 impl Topology {
@@ -54,7 +54,7 @@ impl Topology {
     /// [`Vicinity`] and [`Cyclon`]. Seed [`default`].
     ///
     #[inline]
-    pub fn add_module<M: Module + 'static>(&mut self, module: M) {
+    pub fn add_module<M: Module + Send + Sync + 'static>(&mut self, module: M) {
         let name = module.name();
         self.modules.insert(name, Box::new(module));
     }
