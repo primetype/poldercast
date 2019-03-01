@@ -26,6 +26,38 @@ impl Address {
     {
         addr.to_multiaddr().map(Address)
     }
+
+    pub fn to_socketaddr(&self) -> Option<std::net::SocketAddr> {
+        let components = self.0.iter().collect::<Vec<_>>();
+
+        match components.get(0)? {
+            multiaddr::AddrComponent::IP4(ipv4) => {
+                if let multiaddr::AddrComponent::TCP(port) = components.get(1)? {
+                    Some(std::net::SocketAddr::V4(std::net::SocketAddrV4::new(
+                        *ipv4, *port,
+                    )))
+                } else {
+                    None
+                }
+            }
+            multiaddr::AddrComponent::IP6(ipv6) => {
+                if let multiaddr::AddrComponent::TCP(port) = components.get(1)? {
+                    Some(std::net::SocketAddr::V6(std::net::SocketAddrV6::new(
+                        *ipv6, *port, 0, 0,
+                    )))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
+impl From<Multiaddr> for Address {
+    fn from(multiaddr: Multiaddr) -> Self {
+        Address(multiaddr)
+    }
 }
 
 impl std::str::FromStr for Address {

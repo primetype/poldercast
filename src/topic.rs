@@ -39,6 +39,13 @@ pub struct Proximity {
     proximity: ProximityScore,
 }
 
+impl Topic {
+    #[inline]
+    pub const fn new(bytes: [u8; 16]) -> Topic {
+        Topic { 0: bytes }
+    }
+}
+
 impl InterestLevel {
     #[inline]
     fn priority_score(&self, other: &Self) -> usize {
