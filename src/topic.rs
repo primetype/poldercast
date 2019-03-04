@@ -1,13 +1,14 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// A topic is a unique identifier to a subject of pub/sup one node
 /// is interested about.
 ///
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct Topic([u8; 16]);
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
+pub struct Topic(u32);
 
 /// This is the interest associated to a topic
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub enum InterestLevel {
     /// This describe a low interest level
     Low,
@@ -24,7 +25,7 @@ pub struct Subscription {
     pub interest_level: InterestLevel,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Subscriptions(HashMap<Topic, InterestLevel>);
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -37,13 +38,6 @@ pub struct PriorityScore(usize);
 pub struct Proximity {
     priority: PriorityScore,
     proximity: ProximityScore,
-}
-
-impl Topic {
-    #[inline]
-    pub const fn new(bytes: [u8; 16]) -> Topic {
-        Topic { 0: bytes }
-    }
 }
 
 impl InterestLevel {
@@ -200,22 +194,9 @@ impl Ord for Proximity {
 
 /* ****************************** From ********************************* */
 
-impl From<u128> for Topic {
-    fn from(v: u128) -> Self {
-        Topic(v.to_le_bytes())
-    }
-}
-impl From<[u8; 16]> for Topic {
-    fn from(v: [u8; 16]) -> Self {
-        Topic(v)
-    }
-}
-
-/* ****************************** AsRef ********************************* */
-
-impl AsRef<[u8]> for Topic {
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_ref()
+impl From<u32> for Topic {
+    fn from(value: u32) -> Topic {
+        Topic(value)
     }
 }
 
@@ -226,7 +207,7 @@ mod test {
 
     impl Arbitrary for Topic {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            Topic::from(u128::arbitrary(g))
+            Topic::from(u32::arbitrary(g))
         }
     }
 
@@ -258,6 +239,19 @@ mod test {
                 subs.add(subscription);
             }
             subs
+        }
+    }
+
+    quickcheck! {
+        fn encode_decode_json(subscriptions: Subscriptions) -> bool {
+            let encoded = serde_json::to_string(&subscriptions).unwrap();
+            let decoded : Subscriptions = serde_json::from_str(&encoded).unwrap();
+            decoded == subscriptions
+        }
+        fn encode_decode_bincode(subscriptions: Subscriptions) -> bool {
+            let encoded = bincode::serialize(&subscriptions).unwrap();
+            let decoded : Subscriptions = bincode::deserialize(&encoded).unwrap();
+            decoded == subscriptions
         }
     }
 }
