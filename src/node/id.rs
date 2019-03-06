@@ -45,6 +45,11 @@ impl Id {
         let id = u128::from_le_bytes(bytes);
         Id(id)
     }
+
+    /// return internal representation of the identifier.
+    pub fn as_u128(&self) -> u128 {
+        self.0
+    }
 }
 
 impl From<u128> for Id {
