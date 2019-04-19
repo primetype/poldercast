@@ -1,6 +1,7 @@
 //! A node is a service that participate to the poldercast
 //! topology.
 //!
+#[cfg(feature = "serde_derive")]
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, time::SystemTime};
 
@@ -17,7 +18,8 @@ use crate::{InterestLevel, Proximity, Subscription, Subscriptions, Topic};
 /// This can be gossiped through the topology in order to update
 /// the topology of new nodes or _better_ neighbors.
 ///
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serde_derive", derive(Serialize, Deserialize))]
 pub struct Node {
     /// a unique identifier associated to the node
     pub(crate) id: Id,
@@ -120,19 +122,6 @@ mod test {
                 last_gossip: SystemTime::now()
                     .sub(std::time::Duration::new(u32::arbitrary(g) as u64, 0)),
             }
-        }
-    }
-
-    quickcheck! {
-        fn encode_decode_json(node: Node) -> bool {
-            let encoded = serde_json::to_string(&node).unwrap();
-            let decoded : Node = serde_json::from_str(&encoded).unwrap();
-            decoded == node
-        }
-        fn encode_decode_bincode(node: Node) -> bool {
-            let encoded = bincode::serialize(&node).unwrap();
-            let decoded : Node = bincode::deserialize(&encoded).unwrap();
-            decoded == node
         }
     }
 }

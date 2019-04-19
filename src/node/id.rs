@@ -1,4 +1,5 @@
 use rand_core::RngCore;
+#[cfg(feature = "serde_derive")]
 use serde::{Deserialize, Serialize};
 
 /// this is a poldercast unique identifier.
@@ -28,7 +29,8 @@ use serde::{Deserialize, Serialize};
 ///    let id = Id::from(293088806904227309252857358049315044442);
 ///    ```
 ///
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[cfg_attr(feature = "serde_derive", derive(Serialize, Deserialize))]
 pub struct Id(u128);
 
 impl Id {
@@ -66,19 +68,6 @@ mod test {
     impl Arbitrary for Id {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             Id(u128::arbitrary(g))
-        }
-    }
-
-    quickcheck! {
-        fn encode_decode_json(id: Id) -> bool {
-            let encoded = serde_json::to_string(&id).unwrap();
-            let decoded : Id = serde_json::from_str(&encoded).unwrap();
-            decoded == id
-        }
-        fn encode_decode_bincode(id: Id) -> bool {
-            let encoded = bincode::serialize(&id).unwrap();
-            let decoded : Id = bincode::deserialize(&encoded).unwrap();
-            decoded == id
         }
     }
 }

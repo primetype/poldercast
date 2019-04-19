@@ -1,14 +1,17 @@
+#[cfg(feature = "serde_derive")]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// A topic is a unique identifier to a subject of pub/sup one node
 /// is interested about.
 ///
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[cfg_attr(feature = "serde_derive", derive(Serialize, Deserialize))]
 pub struct Topic(u32);
 
 /// This is the interest associated to a topic
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[cfg_attr(feature = "serde_derive", derive(Serialize, Deserialize))]
 pub enum InterestLevel {
     /// This describe a low interest level
     Low,
@@ -25,7 +28,8 @@ pub struct Subscription {
     pub interest_level: InterestLevel,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serde_derive", derive(Serialize, Deserialize))]
 pub struct Subscriptions(HashMap<Topic, InterestLevel>);
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -239,19 +243,6 @@ mod test {
                 subs.add(subscription);
             }
             subs
-        }
-    }
-
-    quickcheck! {
-        fn encode_decode_json(subscriptions: Subscriptions) -> bool {
-            let encoded = serde_json::to_string(&subscriptions).unwrap();
-            let decoded : Subscriptions = serde_json::from_str(&encoded).unwrap();
-            decoded == subscriptions
-        }
-        fn encode_decode_bincode(subscriptions: Subscriptions) -> bool {
-            let encoded = bincode::serialize(&subscriptions).unwrap();
-            let decoded : Subscriptions = bincode::deserialize(&encoded).unwrap();
-            decoded == subscriptions
         }
     }
 }
