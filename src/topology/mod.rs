@@ -65,12 +65,7 @@ impl Topology {
         let mut view = BTreeMap::new();
 
         for module in self.modules.values() {
-            view.extend(
-                module
-                    .view(&self.known_nodes)
-                    .into_iter()
-                    .map(|(k, v)| (k, v.clone())),
-            );
+            module.view(&self.known_nodes, &mut view)
         }
 
         view.into_iter().map(|v| v.1).collect()

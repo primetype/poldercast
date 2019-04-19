@@ -40,16 +40,14 @@ impl Module for Vicinity {
             .collect();
     }
 
-    fn view<'a>(&self, known_nodes: &'a BTreeMap<Id, Node>) -> BTreeMap<Id, &'a Node> {
-        let mut view = BTreeMap::new();
+    fn view(&self, known_nodes: &BTreeMap<Id, Node>, view: &mut BTreeMap<Id, Node>) {
         for id in self.view.iter() {
             if let Some(node) = known_nodes.get(id) {
-                view.insert(*id, node);
+                view.insert(*id, node.clone());
             } else {
                 unreachable!()
             }
         }
-        view
     }
 }
 impl Vicinity {

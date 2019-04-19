@@ -25,5 +25,5 @@ pub trait Module {
     /// show the view of the module. This is the Node the module have
     /// selected as nodes of interest and/or relevant nodes to exchange
     /// gossips or any other messages.
-    fn view<'a>(&self, known_nodes: &'a BTreeMap<Id, Node>) -> BTreeMap<Id, &'a Node>;
+    fn view(&self, known_nodes: &BTreeMap<Id, Node>, view: &mut BTreeMap<Id, Node>);
 }

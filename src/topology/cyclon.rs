@@ -69,12 +69,12 @@ impl Module for Cyclon {
         /* nothing to update here, because we take all the known_nodes for the cyclon module */
     }
 
-    fn view<'a>(&self, known_nodes: &'a BTreeMap<Id, Node>) -> BTreeMap<Id, &'a Node> {
+    fn view(&self, known_nodes: &BTreeMap<Id, Node>, view: &mut BTreeMap<Id, Node>) {
         let mut node_iterator = known_nodes.values();
         let candidate = if let Some(candidate) = node_iterator.next() {
             candidate
         } else {
-            return BTreeMap::new();
+            return;
         };
 
         let candidate = node_iterator.fold(candidate, |candidate, prospect| {
@@ -84,8 +84,6 @@ impl Module for Cyclon {
                 prospect
             }
         });
-        let mut candidates = BTreeMap::new();
-        candidates.insert(*candidate.id(), candidate);
-        candidates
+        view.insert(*candidate.id(), candidate.clone());
     }
 }

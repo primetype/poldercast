@@ -64,20 +64,18 @@ impl Module for Rings {
         self.update_view(self_node, known_nodes)
     }
 
-    fn view<'a>(&self, known_nodes: &'a BTreeMap<Id, Node>) -> BTreeMap<Id, &'a Node> {
-        let mut view = BTreeMap::new();
+    fn view(&self, known_nodes: &BTreeMap<Id, Node>, view: &mut BTreeMap<Id, Node>) {
         for neighborhood in self.neighbors.values() {
             for slot in neighborhood.iter() {
                 if let Slot::Taken(id) = slot {
                     if let Some(node) = known_nodes.get(id) {
-                        view.insert(*id, node);
+                        view.insert(*id, node.clone());
                     } else {
                         unreachable!()
                     }
                 }
             }
         }
-        view
     }
 }
 
