@@ -46,13 +46,12 @@ impl Module for Cyclon {
 
     fn select_gossips(
         &self,
-        our_node: &Node,
+        _our_node: &Node,
         gossip_recipient: &Node,
         known_nodes: &BTreeMap<Id, Node>,
     ) -> BTreeMap<Id, Node> {
         let mut candidates = BTreeMap::new();
         let mut rng = rand_os::OsRng::new().unwrap();
-        candidates.insert(*our_node.id(), our_node.clone());
 
         candidates.extend(
             self.select_random_gossips(&mut rng, known_nodes)

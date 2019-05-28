@@ -77,7 +77,10 @@ impl Topology {
     /// This function can be called initially to bootstrap the topology with static
     /// values. But it is intended to be called at every gossips received from
     /// other nodes.
-    pub fn update(&mut self, new_nodes: BTreeMap<Id, Node>) {
+    pub fn update(&mut self, mut new_nodes: BTreeMap<Id, Node>) {
+
+        new_nodes.remove(self.our_node.id());
+
         self.our_node.subscribers.extend(new_nodes.keys());
         self.known_nodes.extend(new_nodes);
 
@@ -104,6 +107,14 @@ impl Topology {
                 &self.known_nodes,
             ));
         }
+
+        // Sanitize the gossip if the modules did not:
+        // - the recipient does not need gossip about itself;
+        // - we always include gossip about ourselves,
+        //   with the updated timestamp.
+        gossips.remove(gossip_recipient.id());
+        gossips.insert(*self.our_node.id(), self.our_node.clone());
+
         gossips
     }
 }
