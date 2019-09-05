@@ -1,6 +1,8 @@
-use std::fmt;
-
 use multiaddr::{self, Multiaddr, ToMultiaddr};
+use std::{
+    cmp::{Ord, Ordering},
+    fmt,
+};
 
 /// the address of any given nodes
 ///
@@ -56,6 +58,10 @@ impl Address {
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.to_bytes()
     }
+
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
+    }
 }
 
 impl From<Multiaddr> for Address {
@@ -75,6 +81,17 @@ impl std::str::FromStr for Address {
 impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl PartialOrd for Address {
+    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
+        PartialOrd::partial_cmp(self.0.as_slice(), rhs.0.as_slice())
+    }
+}
+impl Ord for Address {
+    fn cmp(&self, rhs: &Self) -> Ordering {
+        Ord::cmp(self.0.as_slice(), rhs.0.as_slice())
     }
 }
 
