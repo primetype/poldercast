@@ -30,7 +30,7 @@ pub struct Topology {
 impl Topology {
     pub fn new(our_node: Node) -> Self {
         Topology {
-            our_node: our_node,
+            our_node,
             known_nodes: BTreeMap::new(),
             modules: BTreeMap::new(),
         }

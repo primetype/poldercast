@@ -47,7 +47,7 @@ impl Node {
     ///
     pub fn new(id: Id, address: Address) -> Self {
         Node {
-            id: id,
+            id,
             address,
             subscriptions: Subscriptions::new(),
             subscribers: HashSet::new(),
