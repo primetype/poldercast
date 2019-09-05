@@ -1,6 +1,6 @@
 #[cfg(feature = "serde_derive")]
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::{Hash, Hasher}};
 
 /// A topic is a unique identifier to a subject of pub/sup one node
 /// is interested about.
@@ -38,7 +38,7 @@ pub struct ProximityScore(usize);
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct PriorityScore(usize);
 
-#[derive(Copy, Clone, Hash, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Proximity {
     priority: PriorityScore,
     proximity: ProximityScore,
@@ -193,6 +193,12 @@ impl Ord for Proximity {
         } else {
             Equal
         }
+    }
+}
+impl Hash for Proximity {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.priority.hash(state);
+        self.proximity.hash(state);
     }
 }
 
