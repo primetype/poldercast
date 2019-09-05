@@ -1,4 +1,5 @@
-use rand_core::RngCore;
+use crate::node::Address;
+use cryptoxide::{blake2b::Blake2b, digest::Digest};
 #[cfg(feature = "serde_derive")]
 use serde::{Deserialize, Serialize};
 
@@ -14,60 +15,92 @@ use serde::{Deserialize, Serialize};
 ///
 /// There is 2 ways to create a new Id:
 ///
-/// 1. you can [generate] a new one;
+/// 1. you can [compute] from an address:
 ///    ```
-///    # use rand_chacha::ChaChaRng;
-///    # use rand_core::{SeedableRng, RngCore};
-///    # use poldercast::Id;
-///    # let mut rng = ChaChaRng::seed_from_u64(0x4152484920);
-///    let id = Id::generate(&mut rng);
-///    # assert_eq!(id, 293088806904227309252857358049315044442.into());
+///    # use poldercast::{Id, Address};
+///    # use multiaddr::Error;
+///    # fn test() -> Result<(), Error> {
+///    let address: Address = "/ip4/127.0.0.1/tcp/8080".parse()?;
+///    let id = Id::compute(&address);
+///    # assert_eq!(id, [31, 73, 11, 34, 104, 252, 242, 59].into());
+///    # Ok(()) }
+///    # test().unwrap();
 ///    ```
 /// 2. you can manually construct one;
 ///    ```
 ///    # use poldercast::Id;
-///    let id = Id::from(293088806904227309252857358049315044442);
+///    let id = Id::from(9283991);
 ///    ```
 ///
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde_derive", derive(Serialize, Deserialize))]
-pub struct Id(u128);
+pub struct Id([u8; ID_LEN]);
+
+pub const ID_LEN: usize = 8;
 
 impl Id {
     /// generate a new identifier utilizing the given Random Number Generator
     /// ([RNG]).
     ///
     /// [RNG]: http://rust-random.github.io/rand/rand_core/trait.RngCore.html
-    pub fn generate<Rng>(rng: &mut Rng) -> Self
-    where
-        Rng: RngCore,
-    {
-        let mut bytes = [0; 16];
-        rng.fill_bytes(&mut bytes);
-        let id = u128::from_le_bytes(bytes);
-        Id(id)
-    }
-
-    /// return internal representation of the identifier.
-    pub fn as_u128(&self) -> u128 {
-        self.0
+    pub fn compute(address: &Address) -> Self {
+        let mut hasher = Blake2b::new(ID_LEN);
+        hasher.input(address.as_slice());
+        let mut bytes = [0; ID_LEN];
+        hasher.result(&mut bytes);
+        Id(bytes)
     }
 }
 
-impl From<u128> for Id {
-    fn from(v: u128) -> Self {
+impl From<[u8; ID_LEN]> for Id {
+    fn from(v: [u8; ID_LEN]) -> Self {
         Id(v)
+    }
+}
+
+impl From<u64> for Id {
+    fn from(v: u64) -> Self {
+        Id(u64::to_le_bytes(v))
+    }
+}
+
+impl From<Id> for u64 {
+    fn from(v: Id) -> Self {
+        u64::from_le_bytes(v.0)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::node::Address;
     use quickcheck::{Arbitrary, Gen};
 
     impl Arbitrary for Id {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            Id(u128::arbitrary(g))
+            let mut bytes = [0; ID_LEN];
+            bytes.iter_mut().for_each(|byte| *byte = u8::arbitrary(g));
+            Id(bytes)
+        }
+    }
+
+    quickcheck! {
+        fn same_address_same_hash(address: Address) -> bool {
+            let id1 = Id::compute(&address);
+            let id2 = Id::compute(&address);
+
+            id1 == id2
+        }
+
+        fn different_addresses_different_hashes(address1: Address, address2: Address) -> bool {
+            let id1 = Id::compute(&address1);
+            let id2 = Id::compute(&address2);
+
+            if address1 == address2 {
+                id1 == id2
+            } else {
+                id1 != id2
+            }
         }
     }
 }

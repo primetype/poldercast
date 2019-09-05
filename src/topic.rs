@@ -1,6 +1,9 @@
 #[cfg(feature = "serde_derive")]
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, hash::{Hash, Hasher}};
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+};
 
 /// A topic is a unique identifier to a subject of pub/sup one node
 /// is interested about.
@@ -46,7 +49,7 @@ pub struct Proximity {
 
 impl InterestLevel {
     #[inline]
-    fn priority_score(&self, other: &Self) -> usize {
+    fn priority_score(self, other: Self) -> usize {
         use InterestLevel::*;
         match (self, other) {
             (Low, Low) => 1,
@@ -63,10 +66,6 @@ impl InterestLevel {
 }
 
 impl Subscriptions {
-    pub fn new() -> Self {
-        Subscriptions(HashMap::new())
-    }
-
     /// add a new subscription, return the replaced/updated subscription if
     /// topic already present.
     pub fn add(&mut self, subscription: Subscription) -> Option<InterestLevel> {
@@ -74,23 +73,23 @@ impl Subscriptions {
             .insert(subscription.topic, subscription.interest_level)
     }
 
-    pub fn contains(&self, topic: &Topic) -> bool {
-        self.0.contains_key(topic)
+    pub fn contains(&self, topic: Topic) -> bool {
+        self.0.contains_key(&topic)
     }
 
-    pub fn remove(&mut self, subscription: &Topic) -> Option<InterestLevel> {
-        self.0.remove(subscription)
+    pub fn remove(&mut self, subscription: Topic) -> Option<InterestLevel> {
+        self.0.remove(&subscription)
     }
 
-    pub fn topics<'a>(&'a self) -> impl Iterator<Item = &'a Topic> {
+    pub fn topics(&self) -> impl Iterator<Item = &Topic> {
         self.0.keys()
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a Topic, &'a InterestLevel)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Topic, &InterestLevel)> {
         self.0.iter()
     }
 
-    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = (&'a Topic, &'a mut InterestLevel)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&Topic, &mut InterestLevel)> {
         self.0.iter_mut()
     }
 
@@ -107,7 +106,7 @@ impl Subscriptions {
         for (subscription, interest_level) in self.iter() {
             if let Some(other_interest_level) = other.0.get(subscription) {
                 proximity_score += 1;
-                priority_score += interest_level.priority_score(&other_interest_level);
+                priority_score += interest_level.priority_score(*other_interest_level);
             }
         }
         Proximity {
@@ -202,6 +201,14 @@ impl Hash for Proximity {
     }
 }
 
+/* ***************************** Default ******************************* */
+
+impl Default for Subscriptions {
+    fn default() -> Self {
+        Subscriptions(HashMap::default())
+    }
+}
+
 /* ****************************** From ********************************* */
 
 impl From<u32> for Topic {
@@ -244,7 +251,7 @@ mod test {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             let subscriptions: Vec<Subscription> = Arbitrary::arbitrary(g);
 
-            let mut subs = Subscriptions::new();
+            let mut subs = Subscriptions::default();
             for subscription in subscriptions {
                 subs.add(subscription);
             }

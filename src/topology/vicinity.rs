@@ -51,16 +51,6 @@ impl Module for Vicinity {
     }
 }
 impl Vicinity {
-    /// create the new vicinity module with the given profile view
-    ///
-    /// at creating the vicinity module will initialize its own view
-    /// using the given Profiles.
-    pub fn new() -> Self {
-        Vicinity {
-            view: BTreeSet::new(),
-        }
-    }
-
     /// select nodes based on the proximity function (see Profile's proximity
     /// member function).
     fn select_closest_nodes(
@@ -78,5 +68,13 @@ impl Vicinity {
             .map(|v| (*v.id(), v.clone()))
             .take(max)
             .collect()
+    }
+}
+
+impl Default for Vicinity {
+    fn default() -> Self {
+        Vicinity {
+            view: BTreeSet::default(),
+        }
     }
 }

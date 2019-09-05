@@ -41,9 +41,9 @@ impl Topology {
     ///
     pub fn default(our_node: Node) -> Self {
         let mut topology = Topology::new(our_node);
-        topology.add_module(Rings::new());
-        topology.add_module(Vicinity::new());
-        topology.add_module(Cyclon::new());
+        topology.add_module(Rings::default());
+        topology.add_module(Vicinity::default());
+        topology.add_module(Cyclon::default());
         topology
     }
 

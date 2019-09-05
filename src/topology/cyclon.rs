@@ -13,13 +13,6 @@ pub const CYCLON_MAX_GOSSIPING_LENGTH: usize = 128;
 #[derive(Clone, Debug)]
 pub struct Cyclon;
 impl Cyclon {
-    /// create the original Cyclon module, it will be responsible to
-    /// maintain the view of all the connected peers for the other
-    /// modules.
-    pub fn new() -> Self {
-        Cyclon
-    }
-
     fn select_random_gossips<'a, Rng>(
         &self,
         rng: &mut Rng,
@@ -36,6 +29,12 @@ impl Cyclon {
         });
 
         randomly_ordered_nodes
+    }
+}
+
+impl Default for Cyclon {
+    fn default() -> Self {
+        Cyclon
     }
 }
 

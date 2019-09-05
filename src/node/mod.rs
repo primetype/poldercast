@@ -1,9 +1,9 @@
 //! A node is a service that participate to the poldercast
 //! topology.
 //!
-#[cfg(feature = "serde_derive")]
-use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, time::SystemTime};
+
+use crate::{InterestLevel, Proximity, Subscription, Subscriptions, Topic};
+use std::{collections::BTreeSet, time::SystemTime};
 
 mod address;
 mod id;
@@ -11,15 +11,12 @@ mod id;
 pub use self::address::Address;
 pub use self::id::Id;
 
-use crate::{InterestLevel, Proximity, Subscription, Subscriptions, Topic};
-
 /// The data associated to a Node.
 ///
 /// This can be gossiped through the topology in order to update
 /// the topology of new nodes or _better_ neighbors.
 ///
 #[derive(Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "serde_derive", derive(Serialize, Deserialize))]
 pub struct Node {
     /// a unique identifier associated to the node
     pub(crate) id: Id,
@@ -32,7 +29,7 @@ pub struct Node {
     pub(crate) subscriptions: Subscriptions,
 
     /// the `Id` of the other `Node` this `Node` is aware of
-    pub(crate) subscribers: HashSet<Id>,
+    pub(crate) subscribers: BTreeSet<Id>,
 
     /// this value denotes when this node exchange gossips
     /// with us for the last time.
@@ -40,18 +37,37 @@ pub struct Node {
 }
 
 impl Node {
-    /// create a new Node with the given [`Id`] and [`Address`].
+    /// create a new Node with the given [`Address`].
     ///
-    /// [`Id`]: ./struct.Id.html
     /// [`Address`]: ./struct.Address.html
     ///
-    pub fn new(id: Id, address: Address) -> Self {
+    pub fn new(address: Address) -> Self {
         Node {
-            id,
+            id: Id::compute(&address),
             address,
-            subscriptions: Subscriptions::new(),
-            subscribers: HashSet::new(),
+            subscriptions: Subscriptions::default(),
+            subscribers: BTreeSet::new(),
             last_gossip: SystemTime::now(),
+        }
+    }
+
+    /// reconstruct a Node with the given [`Address`].
+    ///
+    /// [`Address`]: ./struct.Address.html
+    ///
+    #[cfg(feature = "serde_derive")]
+    pub(crate) fn reconstruct(
+        address: Address,
+        subscriptions: Subscriptions,
+        subscribers: BTreeSet<Id>,
+        last_gossip: SystemTime,
+    ) -> Self {
+        Node {
+            id: Id::compute(&address),
+            address,
+            subscriptions,
+            subscribers,
+            last_gossip,
         }
     }
 
@@ -67,12 +83,12 @@ impl Node {
 
     /// these are the [`Topic`] and the [`InterestLevel`] associated.
     ///
-    pub fn subscriptions<'a>(&'a self) -> impl Iterator<Item = (&'a Topic, &'a InterestLevel)> {
+    pub fn subscriptions(&self) -> impl Iterator<Item = (&Topic, &InterestLevel)> {
         self.subscriptions.iter()
     }
 
     /// the nodes that are related to this Node
-    pub fn subscribers<'a>(&'a self) -> impl Iterator<Item = &'a Id> {
+    pub fn subscribers(&self) -> impl Iterator<Item = &Id> {
         self.subscribers.iter()
     }
 
@@ -82,7 +98,7 @@ impl Node {
     }
 
     /// remove a subscriptions
-    pub fn remove_subscription(&mut self, topic: &Topic) -> Option<InterestLevel> {
+    pub fn remove_subscription(&mut self, topic: Topic) -> Option<InterestLevel> {
         self.subscriptions.remove(topic)
     }
 
@@ -114,9 +130,11 @@ mod test {
     impl Arbitrary for Node {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             use std::ops::Sub;
+            let address = Address::arbitrary(g);
+
             Node {
-                address: Address::arbitrary(g),
-                id: Id::arbitrary(g),
+                id: Id::compute(&address),
+                address,
                 subscriptions: Subscriptions::arbitrary(g),
                 subscribers: Arbitrary::arbitrary(g),
                 last_gossip: SystemTime::now()

@@ -87,7 +87,7 @@ impl<A> Slot<A> {
         }
     }
 
-    pub(crate) fn option<'a>(&'a self) -> Option<&'a A> {
+    pub(crate) fn option(&self) -> Option<&A> {
         match self {
             Slot::Taken(a) => Some(a),
             Slot::Available => None,
@@ -95,12 +95,21 @@ impl<A> Slot<A> {
     }
 }
 
-impl TopicView {
-    /// create an initial view
-    pub(crate) fn new() -> Self {
+impl Default for TopicView {
+    fn default() -> Self {
         TopicView([Slot::Available; RINGS_MAX_VIEW_SIZE])
     }
+}
 
+impl Default for Rings {
+    fn default() -> Self {
+        Rings {
+            neighbors: BTreeMap::default(),
+        }
+    }
+}
+
+impl TopicView {
     /// the degree of the [`TopicView`] is the number of available
     /// neighbors in this view.
     pub(crate) fn degree(&self) -> usize {
@@ -143,7 +152,7 @@ impl TopicView {
     /// modify the slot in the rings module when we need to add new items
     /// in the slot
     #[cfg(test)]
-    fn successors<'a>(&'a self) -> impl Iterator<Item = &'a Slot<Id>> {
+    fn successors(&self) -> impl Iterator<Item = &Slot<Id>> {
         self.0
             .iter()
             .skip(RINGS_NEIGHBOR_PREDECESSOR_SIZE)
@@ -156,7 +165,7 @@ impl TopicView {
     /// one successor, the successors in this iterator are sorted from
     /// the closest to the node to the farthest (i.e. they are in the
     /// order of interest already.)
-    pub(crate) fn successors_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut Slot<Id>> {
+    pub(crate) fn successors_mut(&mut self) -> impl Iterator<Item = &mut Slot<Id>> {
         self.0
             .iter_mut()
             .skip(RINGS_NEIGHBOR_PREDECESSOR_SIZE)
@@ -170,7 +179,7 @@ impl TopicView {
     /// the closest to the node to the farthest (i.e. they are in the
     /// order of interest already.)
     #[cfg(test)]
-    fn predecessors<'a>(&'a self) -> impl Iterator<Item = &'a Slot<Id>> {
+    fn predecessors(&self) -> impl Iterator<Item = &Slot<Id>> {
         self.0
             .iter()
             .rev()
@@ -184,7 +193,7 @@ impl TopicView {
     /// one predecessor, the predecessors in this iterator are sorted from
     /// the closest to the node to the farthest (i.e. they are in the
     /// order of interest already.)
-    pub(crate) fn predecessors_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut Slot<Id>> {
+    pub(crate) fn predecessors_mut(&mut self) -> impl Iterator<Item = &mut Slot<Id>> {
         self.0
             .iter_mut()
             .rev()
@@ -194,7 +203,7 @@ impl TopicView {
 
     /// iterator over every neighbors, not ordered by preferences (see
     /// [`predecessors`] and [`successors`] for preference ordered iterators)
-    pub(crate) fn iter<'a>(&'a self) -> impl Iterator<Item = &'a Slot<Id>> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &Slot<Id>> {
         self.0.iter()
     }
 
@@ -207,19 +216,13 @@ impl TopicView {
 }
 
 impl Rings {
-    pub fn new() -> Self {
-        Rings {
-            neighbors: BTreeMap::new(),
-        }
-    }
-
     /// update the associated node's subscription priorities
     pub fn update_priorities(&mut self, self_node: &mut Node) {
         for (k, v) in self_node.subscriptions.iter_mut() {
             let degree = self
                 .neighbors
                 .entry(*k)
-                .or_insert(TopicView::new())
+                .or_insert_with(TopicView::default)
                 .degree();
             *v = match RINGS_MAX_VIEW_SIZE - degree {
                 0 => InterestLevel::Low,
@@ -236,10 +239,7 @@ impl Rings {
     }
 
     pub fn contains(&self, id: Id) -> bool {
-        self.neighbors
-            .iter()
-            .find(|(_, v)| v.contains(id))
-            .is_some()
+        self.neighbors.iter().any(|(_, v)| v.contains(id))
     }
 
     /// return the size of the neighbor list
@@ -252,7 +252,7 @@ impl Rings {
         self.neighbors = BTreeMap::new();
 
         for topic in self_node.subscriptions.topics() {
-            let view = select_best_nodes_for_topic(*self_node.id(), topic, known_nodes);
+            let view = select_best_nodes_for_topic(*self_node.id(), *topic, known_nodes);
 
             self.neighbors.insert(*topic, view);
         }
@@ -289,7 +289,7 @@ impl Rings {
 
         let mut nodes = BTreeMap::new();
         for topic in common_topics {
-            let view = select_best_nodes_for_topic(*gossip_node.id(), &topic, &candidates);
+            let view = select_best_nodes_for_topic(*gossip_node.id(), topic, &candidates);
 
             for candidate in view.iter().filter_map(|v| v.option()) {
                 if let Some(node) = candidates.get(candidate) {
@@ -304,11 +304,11 @@ impl Rings {
 
 fn select_best_nodes_for_topic(
     other_id: Id,
-    topic: &Topic,
+    topic: Topic,
     candidates: &BTreeMap<Id, Node>,
 ) -> TopicView {
     use std::ops::Bound::{self, Excluded, Included};
-    let mut view = TopicView::new();
+    let mut view = TopicView::default();
 
     {
         // these are the predecessor
@@ -335,7 +335,7 @@ fn select_best_nodes_for_topic(
             .range((Excluded(other_id), Bound::Unbounded))
             .rev()
         {
-            if candidate.subscriptions.contains(&topic) {
+            if candidate.subscriptions.contains(topic) {
                 if let Some(p) = successor.next() {
                     *p = Slot::Taken(*id);
                 } else {
@@ -365,7 +365,7 @@ mod test {
 
     impl Arbitrary for TopicView {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            let mut view = TopicView::new();
+            let mut view = TopicView::default();
             for v in view.iter_mut() {
                 *v = Arbitrary::arbitrary(g);
             }
