@@ -70,6 +70,13 @@ impl From<Multiaddr> for Address {
     }
 }
 
+impl From<Address> for Multiaddr {
+    #[inline]
+    fn from(address: Address) -> Self {
+        address.0
+    }
+}
+
 impl std::str::FromStr for Address {
     type Err = <Multiaddr as std::str::FromStr>::Err;
 
