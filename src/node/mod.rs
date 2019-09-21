@@ -71,13 +71,19 @@ impl Node {
     ///
     #[cfg(feature = "serde_derive")]
     pub(crate) fn reconstruct(
-        address: Address,
+        address: Option<Address>,
         subscriptions: Subscriptions,
         subscribers: BTreeSet<Id>,
         last_gossip: SystemTime,
     ) -> Self {
+        let id = if let Some(address) = &address {
+            Id::compute(address)
+        } else {
+            Id::zero()
+        };
+
         Node {
-            id: Id::compute(&address),
+            id,
             address,
             subscriptions,
             subscribers,
@@ -144,11 +150,16 @@ mod test {
     impl Arbitrary for Node {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             use std::ops::Sub;
-            let address = Address::arbitrary(g);
+            let address: Option<Address> = Arbitrary::arbitrary(g);
+            let id = if let Some(address) = &address {
+                Id::compute(address)
+            } else {
+                Id::zero()
+            };
 
             Node {
-                id: Id::compute(&address),
-                address: Some(address),
+                id,
+                address,
                 subscriptions: Subscriptions::arbitrary(g),
                 subscribers: Arbitrary::arbitrary(g),
                 last_gossip: SystemTime::now()

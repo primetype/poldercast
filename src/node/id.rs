@@ -45,17 +45,21 @@ impl Id {
     ///
     /// [RNG]: http://rust-random.github.io/rand/rand_core/trait.RngCore.html
     pub fn compute(address: &Address) -> Self {
+        let mut id = Self::zero();
         let mut hasher = Blake2b::new(ID_LEN);
         hasher.input(address.as_slice());
-        let mut bytes = [0; ID_LEN];
-        hasher.result(&mut bytes);
-        Id(bytes)
+        hasher.result(&mut id.0);
+        id
     }
 
     pub(crate) fn random<R: RngCore>(rng: &mut R) -> Self {
-        let mut bytes = [0; ID_LEN];
-        rng.fill_bytes(&mut bytes);
-        Id(bytes)
+        let mut id = Self::zero();
+        rng.fill_bytes(&mut id.0);
+        id
+    }
+
+    pub(crate) fn zero() -> Self {
+        Id([0; ID_LEN])
     }
 }
 

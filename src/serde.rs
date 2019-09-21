@@ -149,8 +149,7 @@ impl<'de> Deserialize<'de> for Node {
             }
         }
 
-        const FIELDS: &'static [&'static str] =
-            &["address", "subscriptions", "subscribers", "last_gossip"];
+        const FIELDS: &[&str] = &["address", "subscriptions", "subscribers", "last_gossip"];
         deserializer.deserialize_struct("Node", FIELDS, NodeVisitor)
     }
 }
