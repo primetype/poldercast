@@ -3,6 +3,7 @@
 //!
 
 use crate::{InterestLevel, Proximity, Subscription, Subscriptions, Topic};
+use rand_core::RngCore;
 use std::{collections::BTreeSet, time::SystemTime};
 
 mod address;
@@ -22,7 +23,7 @@ pub struct Node {
     pub(crate) id: Id,
 
     /// the address to contact the node
-    pub(crate) address: Address,
+    pub(crate) address: Option<Address>,
 
     /// all the subscription this node is interested about
     /// (with associated priority of interest)
@@ -37,14 +38,27 @@ pub struct Node {
 }
 
 impl Node {
+    /// create a new unreachable Node with the given [`Address`].
+    ///
+    /// [`Address`]: ./struct.Address.html
+    ///
+    pub fn new<R: RngCore>(rng: &mut R) -> Self {
+        Node {
+            id: Id::random(rng),
+            address: None,
+            subscriptions: Subscriptions::default(),
+            subscribers: BTreeSet::new(),
+            last_gossip: SystemTime::now(),
+        }
+    }
     /// create a new Node with the given [`Address`].
     ///
     /// [`Address`]: ./struct.Address.html
     ///
-    pub fn new(address: Address) -> Self {
+    pub fn new_with(address: Address) -> Self {
         Node {
             id: Id::compute(&address),
-            address,
+            address: Some(address),
             subscriptions: Subscriptions::default(),
             subscribers: BTreeSet::new(),
             last_gossip: SystemTime::now(),
@@ -77,7 +91,7 @@ impl Node {
     }
 
     /// get the Node's address (mean to contact it)
-    pub fn address(&self) -> &Address {
+    pub fn address(&self) -> &Option<Address> {
         &self.address
     }
 
@@ -134,7 +148,7 @@ mod test {
 
             Node {
                 id: Id::compute(&address),
-                address,
+                address: Some(address),
                 subscriptions: Subscriptions::arbitrary(g),
                 subscribers: Arbitrary::arbitrary(g),
                 last_gossip: SystemTime::now()

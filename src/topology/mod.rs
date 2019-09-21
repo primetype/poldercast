@@ -109,10 +109,12 @@ impl Topology {
 
         // Sanitize the gossip if the modules did not:
         // - the recipient does not need gossip about itself;
-        // - we always include gossip about ourselves,
-        //   with the updated timestamp.
         gossips.remove(gossip_recipient.id());
-        gossips.insert(*self.our_node.id(), self.our_node.clone());
+
+        // only include ourself if we actually have a public address to be reached from
+        if self.our_node.address().is_some() {
+            gossips.insert(*self.our_node.id(), self.our_node.clone());
+        }
 
         gossips
     }

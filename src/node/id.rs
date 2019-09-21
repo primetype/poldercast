@@ -1,5 +1,6 @@
 use crate::node::Address;
 use cryptoxide::{blake2b::Blake2b, digest::Digest};
+use rand_core::RngCore;
 #[cfg(feature = "serde_derive")]
 use serde::{Deserialize, Serialize};
 
@@ -48,6 +49,12 @@ impl Id {
         hasher.input(address.as_slice());
         let mut bytes = [0; ID_LEN];
         hasher.result(&mut bytes);
+        Id(bytes)
+    }
+
+    pub(crate) fn random<R: RngCore>(rng: &mut R) -> Self {
+        let mut bytes = [0; ID_LEN];
+        rng.fill_bytes(&mut bytes);
         Id(bytes)
     }
 }
