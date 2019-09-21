@@ -79,7 +79,7 @@ impl Node {
         let id = if let Some(address) = &address {
             Id::compute(address)
         } else {
-            Id::zero()
+            id_rand_or_zero()
         };
 
         Node {
@@ -139,6 +139,18 @@ impl Node {
     /// in common the _closer_ they are.
     pub fn proximity(&self, other: &Self) -> Proximity {
         self.subscriptions.proximity_to(&other.subscriptions)
+    }
+}
+
+#[cfg(feature = "serde_derive")]
+cfg_if! {
+    if #[cfg(test)] {
+        pub(crate) fn id_rand_or_zero() -> Id { Id::zero() }
+    } else {
+        pub(crate) fn id_rand_or_zero() -> Id {
+            let mut os_rng = rand_os::OsRng::new().unwrap();
+            Id::random(&mut os_rng)
+        }
     }
 }
 
