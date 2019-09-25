@@ -19,12 +19,28 @@ pub use self::vicinity::Vicinity;
 use crate::{Id, Node};
 use std::collections::BTreeMap;
 
+/// Topology manager
+///
+/// will provide the information for what nodes to talk to and what
+/// nodes we will need to share gossips to.
+///
+/// It is possible to customize the different modules of poldercast
+/// by adding different modules but the default ones.
+///
+/// Another thing that can be done is filter before hands some nodes that
+/// are not desirable by setting the `gossip_filter`.
 pub struct Topology {
     our_node: Node,
 
     known_nodes: BTreeMap<Id, Node>,
 
     modules: BTreeMap<&'static str, Box<dyn Module + Send + Sync>>,
+
+    gossip_filter: &'static dyn Fn(&Node) -> bool,
+}
+
+fn default_gossip_filter(_node: &Node) -> bool {
+    true
 }
 
 impl Topology {
@@ -33,6 +49,7 @@ impl Topology {
             our_node,
             known_nodes: BTreeMap::new(),
             modules: BTreeMap::new(),
+            gossip_filter: &default_gossip_filter,
         }
     }
 
@@ -59,6 +76,19 @@ impl Topology {
         self.modules.insert(name, Box::new(module));
     }
 
+    /// set the gossip filter. This function will filter the gossips before adding
+    /// them to our list of known peers.
+    ///
+    /// This is useful for removing and preventing propagating nodes we believe
+    /// are not of values for ourselves or for gossiping with others.
+    ///
+    /// However we already pre-filter all nodes that do not have public ip address
+    /// (i.e. that are not publicly reachable, so this test is not necessary).
+    #[inline]
+    pub fn set_gossip_filter(&mut self, gossip_filter: &'static dyn Fn(&Node) -> bool) {
+        self.gossip_filter = gossip_filter;
+    }
+
     /// this is the view, the Nodes that the we need to contact in our neighborhood
     /// in order to propagate gossips (within other things).
     pub fn view(&self) -> Vec<Node> {
@@ -80,8 +110,14 @@ impl Topology {
     pub fn update(&mut self, mut new_nodes: BTreeMap<Id, Node>) {
         new_nodes.remove(self.our_node.id());
 
+        let gossip_filter = self.gossip_filter;
+
         self.our_node.subscribers.extend(new_nodes.keys());
-        self.known_nodes.extend(new_nodes);
+        self.known_nodes.extend(
+            new_nodes
+                .into_iter()
+                .filter(|(_id, node)| node.address.is_some() && gossip_filter(node)),
+        );
 
         for module in self.modules.values_mut() {
             module.update(&self.our_node, &self.known_nodes);
