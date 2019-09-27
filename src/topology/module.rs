@@ -27,3 +27,12 @@ pub trait Module {
     /// gossips or any other messages.
     fn view(&self, known_nodes: &BTreeMap<Id, Node>, view: &mut BTreeMap<Id, Node>);
 }
+
+/// filter module, will be applied on the set of modules to filter out undesired nodes
+pub trait FilterModule {
+    fn name(&self) -> &'static str;
+
+    /// take ownership of some tree of nodes and filter out nodes that needs to be
+    /// removed based on the filtering policies.
+    fn filter(&self, _our_node: &Node, _other_nodes: BTreeMap<Id, Node>) -> BTreeMap<Id, Node>;
+}

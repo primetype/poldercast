@@ -12,7 +12,7 @@ mod ring;
 mod vicinity;
 
 pub use self::cyclon::Cyclon;
-pub use self::module::Module;
+pub use self::module::{FilterModule, Module};
 pub use self::ring::Rings;
 pub use self::vicinity::Vicinity;
 
@@ -36,21 +36,21 @@ pub struct Topology {
 
     modules: BTreeMap<&'static str, Box<dyn Module + Send + Sync>>,
 
-    gossip_filter: &'static dyn Fn(&Node) -> bool,
-}
-
-fn default_gossip_filter(_node: &Node) -> bool {
-    true
+    filter_modules: BTreeMap<&'static str, Box<dyn FilterModule + Send + Sync>>,
 }
 
 impl Topology {
     pub fn new(our_node: Node) -> Self {
-        Topology {
+        let mut topology = Topology {
             our_node,
             known_nodes: BTreeMap::new(),
             modules: BTreeMap::new(),
-            gossip_filter: &default_gossip_filter,
-        }
+            filter_modules: BTreeMap::new(),
+        };
+
+        topology.add_filter_module(DefaultFilterModule::default());
+
+        topology
     }
 
     /// create a new topology with the default poldercast's modules: [`Rings`],
@@ -76,17 +76,18 @@ impl Topology {
         self.modules.insert(name, Box::new(module));
     }
 
-    /// set the gossip filter. This function will filter the gossips before adding
-    /// them to our list of known peers.
+    /// add a filter module that will participate in the policy to pre-filter nodes
+    /// received from the gossiping.
     ///
-    /// This is useful for removing and preventing propagating nodes we believe
-    /// are not of values for ourselves or for gossiping with others.
-    ///
-    /// However we already pre-filter all nodes that do not have public ip address
-    /// (i.e. that are not publicly reachable, so this test is not necessary).
+    /// There is no need to filter Nodes with no addresses as they are already filtered
+    /// by default
     #[inline]
-    pub fn set_gossip_filter(&mut self, gossip_filter: &'static dyn Fn(&Node) -> bool) {
-        self.gossip_filter = gossip_filter;
+    pub fn add_filter_module<FM: FilterModule + Send + Sync + 'static>(
+        &mut self,
+        filter_module: FM,
+    ) {
+        let name = filter_module.name();
+        self.filter_modules.insert(name, Box::new(filter_module));
     }
 
     /// this is the view, the Nodes that the we need to contact in our neighborhood
@@ -101,23 +102,28 @@ impl Topology {
         view.into_iter().map(|v| v.1).collect()
     }
 
+    fn filter_nodes(&self, mut nodes: BTreeMap<Id, Node>) -> BTreeMap<Id, Node> {
+        for filter in self.filter_modules.values() {
+            nodes = filter.filter(&self.our_node, nodes);
+        }
+
+        nodes
+    }
+
     /// update the known nodes and list of subscribers via the given collection
     /// of new node.
     ///
-    /// This function can be called initially to bootstrap the topology with static
+    /// This function can be called initially to bootstrap the topology with initial
     /// values. But it is intended to be called at every gossips received from
     /// other nodes.
-    pub fn update(&mut self, mut new_nodes: BTreeMap<Id, Node>) {
-        new_nodes.remove(self.our_node.id());
+    ///
+    /// this function will be filtering Nodes that do not have IP public address
+    /// (i.e. `node.address().is_some()`).
+    pub fn update(&mut self, new_nodes: BTreeMap<Id, Node>) {
+        let filtered_nodes = self.filter_nodes(new_nodes);
 
-        let gossip_filter = self.gossip_filter;
-
-        self.our_node.subscribers.extend(new_nodes.keys());
-        self.known_nodes.extend(
-            new_nodes
-                .into_iter()
-                .filter(|(_id, node)| node.address.is_some() && gossip_filter(node)),
-        );
+        self.our_node.subscribers.extend(filtered_nodes.keys());
+        self.known_nodes.extend(filtered_nodes);
 
         for module in self.modules.values_mut() {
             module.update(&self.our_node, &self.known_nodes);
@@ -158,5 +164,24 @@ impl Topology {
         }
 
         gossips
+    }
+}
+
+struct DefaultFilterModule;
+impl Default for DefaultFilterModule {
+    fn default() -> Self {
+        DefaultFilterModule
+    }
+}
+impl FilterModule for DefaultFilterModule {
+    fn name(&self) -> &'static str {
+        "default filter module"
+    }
+
+    fn filter(&self, our_node: &Node, other_nodes: BTreeMap<Id, Node>) -> BTreeMap<Id, Node> {
+        other_nodes
+            .into_iter()
+            .filter(|(_id, node)| our_node.id() != node.id() && node.address().is_some())
+            .collect()
     }
 }
