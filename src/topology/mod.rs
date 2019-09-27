@@ -131,8 +131,8 @@ impl Topology {
     }
 
     /// evict a node from the list of known nodes and returns it
-    pub fn evict_node(&mut self, id: &Id) -> Option<Node> {
-        self.known_nodes.remove(id)
+    pub fn evict_node(&mut self, id: Id) -> Option<Node> {
+        self.known_nodes.remove(&id)
     }
 
     /// select the gossips to share with the given Node.
