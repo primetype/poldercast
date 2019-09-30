@@ -132,7 +132,13 @@ impl Topology {
 
     /// evict a node from the list of known nodes and returns it
     pub fn evict_node(&mut self, id: Id) -> Option<Node> {
-        self.known_nodes.remove(&id)
+        if let Some(node) = self.known_nodes.remove(&id) {
+            let known_nodes = std::mem::replace(&mut self.known_nodes, BTreeMap::new());
+            self.update(known_nodes);
+            Some(node)
+        } else {
+            None
+        }
     }
 
     /// select the gossips to share with the given Node.
