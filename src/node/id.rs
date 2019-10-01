@@ -3,6 +3,7 @@ use cryptoxide::{blake2b::Blake2b, digest::Digest};
 use rand_core::RngCore;
 #[cfg(feature = "serde_derive")]
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// this is a poldercast unique identifier.
 ///
@@ -33,7 +34,7 @@ use serde::{Deserialize, Serialize};
 ///    let id = Id::from(9283991);
 ///    ```
 ///
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde_derive", derive(Serialize, Deserialize))]
 pub struct Id([u8; ID_LEN]);
 
@@ -81,6 +82,12 @@ impl From<Id> for u64 {
     }
 }
 
+impl fmt::Debug for Id {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", u64::from(*self))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -113,5 +120,12 @@ mod test {
                 id1 != id2
             }
         }
+    }
+
+    #[test]
+    fn fmt_debug_impl() {
+        let id = Id::from(0x12345678deadbeefu64);
+        let s = format!("{:?}", id);
+        assert_eq!(s, "0x12345678deadbeef");
     }
 }
