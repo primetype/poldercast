@@ -6,9 +6,9 @@
 use crate::{topology::Module, Id, Node};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const VICINITY_MAX_VIEW_SIZE: usize = 50;
+pub const VICINITY_MAX_VIEW_SIZE: usize = 10;
 
-pub const VICINITY_MAX_GOSSIP_LENGTH: usize = 32;
+pub const VICINITY_MAX_GOSSIP_LENGTH: usize = 20;
 
 #[derive(Clone, Debug)]
 pub struct Vicinity {
