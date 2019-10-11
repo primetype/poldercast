@@ -53,6 +53,14 @@ impl Topology {
         topology
     }
 
+    pub fn node(&self) -> &Node {
+        &self.our_node
+    }
+
+    pub fn node_mut(&mut self) -> &mut Node {
+        &mut self.our_node
+    }
+
     /// create a new topology with the default poldercast's modules: [`Rings`],
     /// [`Vicinity`] and [`Cyclon`].
     ///
