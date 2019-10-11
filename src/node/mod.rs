@@ -3,14 +3,23 @@
 //!
 
 use crate::{InterestLevel, Proximity, Subscription, Subscriptions, Topic};
-use rand_core::RngCore;
+use rand_core::{CryptoRng, RngCore};
 use std::{collections::BTreeSet, time::SystemTime};
+#[cfg(feature = "serde_derive")]
+use serde::{Deserialize, Serialize};
 
 mod address;
 mod id;
 
 pub use self::address::Address;
-pub use self::id::Id;
+pub use self::id::{Id, PrivateId};
+
+/// this is the data that the local node contains
+pub struct Node {
+    private_id: PrivateId,
+
+    node_data: NodeData,
+}
 
 /// The data associated to a Node.
 ///
@@ -18,7 +27,8 @@ pub use self::id::Id;
 /// the topology of new nodes or _better_ neighbors.
 ///
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Node {
+#[cfg_attr(feature = "serde_derive", derive(Serialize, Deserialize))]
+pub struct NodeData {
     /// a unique identifier associated to the node
     pub(crate) id: Id,
 
@@ -38,13 +48,55 @@ pub struct Node {
 }
 
 impl Node {
-    /// create a new unreachable Node with the given [`Address`].
+    /// create a new unreachable Node with the given [`Id`].
+    ///
+    /// [`Id`]: ./struct.Id.html
+    ///
+    pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
+        let private_id = PrivateId::generate(rng);
+        Self::new(private_id)
+    }
+
+    pub fn new(private_id: PrivateId) -> Self {
+        let id = private_id.id();
+
+        Node {
+            private_id,
+            node_data: NodeData::new(id),
+        }
+    }
+
+    pub fn generate_with<R: RngCore + CryptoRng>(rng: &mut R, address: Address) -> Self {
+        let private_id = PrivateId::generate(rng);
+        Self::new_with(private_id, address)
+    }
+
+    pub fn new_with(private_id: PrivateId, address: Address) -> Self {
+        let id = private_id.id();
+
+        Node {
+            private_id,
+            node_data: NodeData::new_with(id, address),
+        }
+    }
+
+    pub fn data(&self) -> &NodeData {
+        &self.node_data
+    }
+
+    pub fn data_mut(&mut self) -> &mut NodeData {
+        &mut self.node_data
+    }
+}
+
+impl NodeData {
+    /// create a new unreachable Node with the given [`Id`].
     ///
     /// [`Address`]: ./struct.Address.html
     ///
-    pub fn new<R: RngCore>(rng: &mut R) -> Self {
-        Node {
-            id: Id::random(rng),
+    fn new(id: Id) -> Self {
+        NodeData {
+            id,
             address: None,
             subscriptions: Subscriptions::default(),
             subscribers: BTreeSet::new(),
@@ -55,39 +107,13 @@ impl Node {
     ///
     /// [`Address`]: ./struct.Address.html
     ///
-    pub fn new_with(address: Address) -> Self {
-        Node {
-            id: Id::compute(&address),
+    fn new_with(id: Id, address: Address) -> Self {
+        NodeData {
+            id: id,
             address: Some(address),
             subscriptions: Subscriptions::default(),
             subscribers: BTreeSet::new(),
             last_gossip: SystemTime::now(),
-        }
-    }
-
-    /// reconstruct a Node with the given [`Address`].
-    ///
-    /// [`Address`]: ./struct.Address.html
-    ///
-    #[cfg(feature = "serde_derive")]
-    pub(crate) fn reconstruct(
-        address: Option<Address>,
-        subscriptions: Subscriptions,
-        subscribers: BTreeSet<Id>,
-        last_gossip: SystemTime,
-    ) -> Self {
-        let id = if let Some(address) = &address {
-            Id::compute(address)
-        } else {
-            id_rand_or_zero()
-        };
-
-        Node {
-            id,
-            address,
-            subscriptions,
-            subscribers,
-            last_gossip,
         }
     }
 
@@ -142,34 +168,18 @@ impl Node {
     }
 }
 
-#[cfg(feature = "serde_derive")]
-cfg_if! {
-    if #[cfg(test)] {
-        pub(crate) fn id_rand_or_zero() -> Id { Id::zero() }
-    } else {
-        pub(crate) fn id_rand_or_zero() -> Id {
-            let mut os_rng = rand_os::OsRng::new().unwrap();
-            Id::random(&mut os_rng)
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
     use quickcheck::{Arbitrary, Gen};
 
-    impl Arbitrary for Node {
+    impl Arbitrary for NodeData {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             use std::ops::Sub;
             let address: Option<Address> = Arbitrary::arbitrary(g);
-            let id = if let Some(address) = &address {
-                Id::compute(address)
-            } else {
-                Id::zero()
-            };
+            let id = Id::arbitrary(g);
 
-            Node {
+            NodeData {
                 id,
                 address,
                 subscriptions: Subscriptions::arbitrary(g),

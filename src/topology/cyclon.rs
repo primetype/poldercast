@@ -1,7 +1,7 @@
 use rand_core::RngCore;
 use std::collections::BTreeMap;
 
-use crate::{topology::Module, Id, Node};
+use crate::{topology::Module, Id, NodeData};
 
 pub const CYCLON_MAX_GOSSIPING_LENGTH: usize = 128;
 
@@ -16,8 +16,8 @@ impl Cyclon {
     fn select_random_gossips<'a, Rng>(
         &self,
         rng: &mut Rng,
-        known_nodes: &'a BTreeMap<Id, Node>,
-    ) -> Vec<(&'a Id, &'a Node)>
+        known_nodes: &'a BTreeMap<Id, NodeData>,
+    ) -> Vec<(&'a Id, &'a NodeData)>
     where
         Rng: RngCore,
     {
@@ -45,10 +45,10 @@ impl Module for Cyclon {
 
     fn select_gossips(
         &self,
-        _our_node: &Node,
-        gossip_recipient: &Node,
-        known_nodes: &BTreeMap<Id, Node>,
-    ) -> BTreeMap<Id, Node> {
+        _our_node: &NodeData,
+        gossip_recipient: &NodeData,
+        known_nodes: &BTreeMap<Id, NodeData>,
+    ) -> BTreeMap<Id, NodeData> {
         let mut candidates = BTreeMap::new();
         let mut rng = rand_os::OsRng::new().unwrap();
 
@@ -63,11 +63,11 @@ impl Module for Cyclon {
         candidates
     }
 
-    fn update(&mut self, _: &Node, _: &BTreeMap<Id, Node>) {
+    fn update(&mut self, _: &NodeData, _: &BTreeMap<Id, NodeData>) {
         /* nothing to update here, because we take all the known_nodes for the cyclon module */
     }
 
-    fn view(&self, known_nodes: &BTreeMap<Id, Node>, view: &mut BTreeMap<Id, Node>) {
+    fn view(&self, known_nodes: &BTreeMap<Id, NodeData>, view: &mut BTreeMap<Id, NodeData>) {
         let mut node_iterator = known_nodes.values();
         let candidate = if let Some(candidate) = node_iterator.next() {
             candidate

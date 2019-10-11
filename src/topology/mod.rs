@@ -4,7 +4,7 @@
 //! maintaining the links between them.
 //!
 //! The [`Topology`] object is maintaining the relative local topology of the
-//! given Node.
+//! given NodeData.
 //!
 mod cyclon;
 mod module;
@@ -16,7 +16,7 @@ pub use self::module::{FilterModule, Module};
 pub use self::ring::Rings;
 pub use self::vicinity::Vicinity;
 
-use crate::{Id, Node};
+use crate::{Id, Node, NodeData};
 use std::collections::BTreeMap;
 
 /// Topology manager
@@ -32,7 +32,7 @@ use std::collections::BTreeMap;
 pub struct Topology {
     our_node: Node,
 
-    known_nodes: BTreeMap<Id, Node>,
+    known_nodes: BTreeMap<Id, NodeData>,
 
     modules: BTreeMap<&'static str, Box<dyn Module + Send + Sync>>,
 
@@ -79,7 +79,7 @@ impl Topology {
     /// add a filter module that will participate in the policy to pre-filter nodes
     /// received from the gossiping.
     ///
-    /// There is no need to filter Nodes with no addresses as they are already filtered
+    /// There is no need to filter NodeDatas with no addresses as they are already filtered
     /// by default
     #[inline]
     pub fn add_filter_module<FM: FilterModule + Send + Sync + 'static>(
@@ -90,9 +90,9 @@ impl Topology {
         self.filter_modules.insert(name, Box::new(filter_module));
     }
 
-    /// this is the view, the Nodes that the we need to contact in our neighborhood
+    /// this is the view, the NodeDatas that the we need to contact in our neighborhood
     /// in order to propagate gossips (within other things).
-    pub fn view(&self) -> Vec<Node> {
+    pub fn view(&self) -> Vec<NodeData> {
         let mut view = BTreeMap::new();
 
         for module in self.modules.values() {
@@ -102,9 +102,9 @@ impl Topology {
         view.into_iter().map(|v| v.1).collect()
     }
 
-    fn filter_nodes(&self, mut nodes: BTreeMap<Id, Node>) -> BTreeMap<Id, Node> {
+    fn filter_nodes(&self, mut nodes: BTreeMap<Id, NodeData>) -> BTreeMap<Id, NodeData> {
         for filter in self.filter_modules.values() {
-            nodes = filter.filter(&self.our_node, nodes);
+            nodes = filter.filter(&self.our_node.data(), nodes);
         }
 
         nodes
@@ -117,21 +117,21 @@ impl Topology {
     /// values. But it is intended to be called at every gossips received from
     /// other nodes.
     ///
-    /// this function will be filtering Nodes that do not have IP public address
+    /// this function will be filtering NodeDatas that do not have IP public address
     /// (i.e. `node.address().is_some()`).
-    pub fn update(&mut self, new_nodes: BTreeMap<Id, Node>) {
+    pub fn update(&mut self, new_nodes: BTreeMap<Id, NodeData>) {
         let filtered_nodes = self.filter_nodes(new_nodes);
 
-        self.our_node.subscribers.extend(filtered_nodes.keys());
+        self.our_node.data_mut().subscribers.extend(filtered_nodes.keys());
         self.known_nodes.extend(filtered_nodes);
 
         for module in self.modules.values_mut() {
-            module.update(&self.our_node, &self.known_nodes);
+            module.update(self.our_node.data(), &self.known_nodes);
         }
     }
 
     /// evict a node from the list of known nodes and returns it
-    pub fn evict_node(&mut self, id: Id) -> Option<Node> {
+    pub fn evict_node(&mut self, id: Id) -> Option<NodeData> {
         if let Some(node) = self.known_nodes.remove(&id) {
             let known_nodes = std::mem::replace(&mut self.known_nodes, BTreeMap::new());
             self.update(known_nodes);
@@ -141,33 +141,39 @@ impl Topology {
         }
     }
 
-    /// select the gossips to share with the given Node.
+    /// select the gossips to share with the given NodeData.
     ///
     /// This function requires the Topology object to be mutable because we will update
     /// timestamp regarding the last time we gossiped. This information can be useful
     /// for other nodes
     ///
-    pub fn select_gossips(&mut self, gossip_recipient: &Node) -> BTreeMap<Id, Node> {
+    pub fn select_gossips(&mut self, gossip_recipient: &NodeData) -> BTreeMap<Id, NodeData> {
         let mut gossips = BTreeMap::new();
 
-        self.our_node.last_gossip = std::time::SystemTime::now();
+        self.our_node.data_mut().last_gossip = std::time::SystemTime::now();
+
+        let known_nodes = self
+                        .known_nodes
+                        .iter()
+                        .filter(|node| node.1.address().is_some())
+                        .map(|(id, node)| (*id, node.clone()))
+                        .collect();
 
         for module in self.modules.values() {
-            gossips.extend(module.select_gossips(
-                &self.our_node,
-                gossip_recipient,
-                &self.known_nodes,
-            ));
+            gossips.extend(
+                module.select_gossips(
+                    self.our_node.data(),
+                    gossip_recipient,
+                    &known_nodes
+                ),
+            );
         }
 
         // Sanitize the gossip if the modules did not:
         // - the recipient does not need gossip about itself;
         gossips.remove(gossip_recipient.id());
 
-        // only include ourself if we actually have a public address to be reached from
-        if self.our_node.address().is_some() {
-            gossips.insert(*self.our_node.id(), self.our_node.clone());
-        }
+        gossips.insert(*self.our_node.data().id(), self.our_node.data().clone());
 
         gossips
     }
@@ -184,7 +190,7 @@ impl FilterModule for DefaultFilterModule {
         "default filter module"
     }
 
-    fn filter(&self, our_node: &Node, other_nodes: BTreeMap<Id, Node>) -> BTreeMap<Id, Node> {
+    fn filter(&self, our_node: &NodeData, other_nodes: BTreeMap<Id, NodeData>) -> BTreeMap<Id, NodeData> {
         other_nodes
             .into_iter()
             .filter(|(_id, node)| our_node.id() != node.id() && node.address().is_some())

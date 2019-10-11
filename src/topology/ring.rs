@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::topology::Module;
-use crate::{Id, InterestLevel, Node, Topic};
+use crate::{Id, InterestLevel, NodeData, Topic};
 
 /// the number of neighbor for a given subscribed topic of the given node.
 ///
@@ -53,18 +53,18 @@ impl Module for Rings {
 
     fn select_gossips(
         &self,
-        our_node: &Node,
-        gossip_recipient: &Node,
-        known_nodes: &BTreeMap<Id, Node>,
-    ) -> BTreeMap<Id, Node> {
+        our_node: &NodeData,
+        gossip_recipient: &NodeData,
+        known_nodes: &BTreeMap<Id, NodeData>,
+    ) -> BTreeMap<Id, NodeData> {
         self.select_nodes_to_send(our_node, gossip_recipient, known_nodes)
     }
 
-    fn update(&mut self, self_node: &Node, known_nodes: &BTreeMap<Id, Node>) {
+    fn update(&mut self, self_node: &NodeData, known_nodes: &BTreeMap<Id, NodeData>) {
         self.update_view(self_node, known_nodes)
     }
 
-    fn view(&self, known_nodes: &BTreeMap<Id, Node>, view: &mut BTreeMap<Id, Node>) {
+    fn view(&self, known_nodes: &BTreeMap<Id, NodeData>, view: &mut BTreeMap<Id, NodeData>) {
         for neighborhood in self.neighbors.values() {
             for slot in neighborhood.iter() {
                 if let Slot::Taken(id) = slot {
@@ -217,7 +217,7 @@ impl TopicView {
 
 impl Rings {
     /// update the associated node's subscription priorities
-    pub fn update_priorities(&mut self, self_node: &mut Node) {
+    pub fn update_priorities(&mut self, self_node: &mut NodeData) {
         for (k, v) in self_node.subscriptions.iter_mut() {
             let degree = self
                 .neighbors
@@ -248,7 +248,7 @@ impl Rings {
     }
 
     // update the Rings view (neighbors for every topics) with the given new nodes
-    fn update_view(&mut self, self_node: &Node, known_nodes: &BTreeMap<Id, Node>) {
+    fn update_view(&mut self, self_node: &NodeData, known_nodes: &BTreeMap<Id, NodeData>) {
         self.neighbors = BTreeMap::new();
 
         for topic in self_node.subscriptions.topics() {
@@ -260,10 +260,10 @@ impl Rings {
 
     fn select_nodes_to_send(
         &self,
-        self_node: &Node,
-        gossip_node: &Node,
-        known_nodes: &BTreeMap<Id, Node>,
-    ) -> BTreeMap<Id, Node> {
+        self_node: &NodeData,
+        gossip_node: &NodeData,
+        known_nodes: &BTreeMap<Id, NodeData>,
+    ) -> BTreeMap<Id, NodeData> {
         // these are the subscriptions in common between the gossip node and our nodes
         let common_topics: BTreeSet<Topic> = self_node
             .common_subscriptions(gossip_node)
@@ -278,7 +278,7 @@ impl Rings {
 
         // candidates are the one that are common subscribers sharing the same common
         // topics.
-        let candidates: BTreeMap<Id, Node> = known_nodes
+        let candidates: BTreeMap<Id, NodeData> = known_nodes
             .iter()
             .filter(|(k, v)| {
                 common_subscribers.contains(k)
@@ -305,7 +305,7 @@ impl Rings {
 fn select_best_nodes_for_topic(
     other_id: Id,
     topic: Topic,
-    candidates: &BTreeMap<Id, Node>,
+    candidates: &BTreeMap<Id, NodeData>,
 ) -> TopicView {
     use std::ops::Bound::{self, Excluded, Included};
     let mut view = TopicView::default();
@@ -314,7 +314,7 @@ fn select_best_nodes_for_topic(
         // these are the predecessor
         let mut predecessor = view.predecessors_mut();
         for (id, candidate) in candidates
-            .range((Included(0.into()), Excluded(other_id)))
+            .range((Included(Id::zero()), Excluded(other_id)))
             .rev()
         {
             if candidate.subscriptions.contains(topic) {
