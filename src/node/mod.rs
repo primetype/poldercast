@@ -4,9 +4,9 @@
 
 use crate::{InterestLevel, Proximity, Subscription, Subscriptions, Topic};
 use rand_core::{CryptoRng, RngCore};
-use std::{collections::BTreeSet, time::SystemTime};
 #[cfg(feature = "serde_derive")]
 use serde::{Deserialize, Serialize};
+use std::{collections::BTreeSet, time::SystemTime};
 
 mod address;
 mod id;
