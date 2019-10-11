@@ -59,6 +59,7 @@ impl Address {
         self.0.to_bytes()
     }
 
+    #[cfg(feature = "serde_derive")]
     pub(crate) fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
     }
