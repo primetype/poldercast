@@ -107,7 +107,7 @@ impl NodeData {
     ///
     /// [`Address`]: ./struct.Address.html
     ///
-    fn new_with(id: Id, address: Address) -> Self {
+    pub fn new_with(id: Id, address: Address) -> Self {
         NodeData {
             id: id,
             address: Some(address),
