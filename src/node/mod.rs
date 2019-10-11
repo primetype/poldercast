@@ -109,7 +109,7 @@ impl NodeData {
     ///
     pub fn new_with(id: Id, address: Address) -> Self {
         NodeData {
-            id: id,
+            id,
             address: Some(address),
             subscriptions: Subscriptions::default(),
             subscribers: BTreeSet::new(),
