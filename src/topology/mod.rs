@@ -41,16 +41,12 @@ pub struct Topology {
 
 impl Topology {
     pub fn new(our_node: Node) -> Self {
-        let mut topology = Topology {
+        Topology {
             our_node,
             known_nodes: BTreeMap::new(),
             modules: BTreeMap::new(),
             filter_modules: BTreeMap::new(),
-        };
-
-        topology.add_filter_module(DefaultFilterModule::default());
-
-        topology
+        }
     }
 
     pub fn node(&self) -> &Node {
@@ -185,28 +181,5 @@ impl Topology {
         gossips.insert(*self.our_node.data().id(), self.our_node.data().clone());
 
         gossips
-    }
-}
-
-struct DefaultFilterModule;
-impl Default for DefaultFilterModule {
-    fn default() -> Self {
-        DefaultFilterModule
-    }
-}
-impl FilterModule for DefaultFilterModule {
-    fn name(&self) -> &'static str {
-        "default filter module"
-    }
-
-    fn filter(
-        &self,
-        our_node: &NodeData,
-        other_nodes: BTreeMap<Id, NodeData>,
-    ) -> BTreeMap<Id, NodeData> {
-        other_nodes
-            .into_iter()
-            .filter(|(_id, node)| our_node.id() != node.id() && node.address().is_some())
-            .collect()
     }
 }
