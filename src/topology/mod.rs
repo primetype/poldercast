@@ -122,7 +122,10 @@ impl Topology {
     pub fn update(&mut self, new_nodes: BTreeMap<Id, NodeData>) {
         let filtered_nodes = self.filter_nodes(new_nodes);
 
-        self.our_node.data_mut().subscribers.extend(filtered_nodes.keys());
+        self.our_node
+            .data_mut()
+            .subscribers
+            .extend(filtered_nodes.keys());
         self.known_nodes.extend(filtered_nodes);
 
         for module in self.modules.values_mut() {
@@ -153,20 +156,18 @@ impl Topology {
         self.our_node.data_mut().last_gossip = std::time::SystemTime::now();
 
         let known_nodes = self
-                        .known_nodes
-                        .iter()
-                        .filter(|node| node.1.address().is_some())
-                        .map(|(id, node)| (*id, node.clone()))
-                        .collect();
+            .known_nodes
+            .iter()
+            .filter(|node| node.1.address().is_some())
+            .map(|(id, node)| (*id, node.clone()))
+            .collect();
 
         for module in self.modules.values() {
-            gossips.extend(
-                module.select_gossips(
-                    self.our_node.data(),
-                    gossip_recipient,
-                    &known_nodes
-                ),
-            );
+            gossips.extend(module.select_gossips(
+                self.our_node.data(),
+                gossip_recipient,
+                &known_nodes,
+            ));
         }
 
         // Sanitize the gossip if the modules did not:
@@ -190,7 +191,11 @@ impl FilterModule for DefaultFilterModule {
         "default filter module"
     }
 
-    fn filter(&self, our_node: &NodeData, other_nodes: BTreeMap<Id, NodeData>) -> BTreeMap<Id, NodeData> {
+    fn filter(
+        &self,
+        our_node: &NodeData,
+        other_nodes: BTreeMap<Id, NodeData>,
+    ) -> BTreeMap<Id, NodeData> {
         other_nodes
             .into_iter()
             .filter(|(_id, node)| our_node.id() != node.id() && node.address().is_some())

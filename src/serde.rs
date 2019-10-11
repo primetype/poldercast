@@ -1,7 +1,7 @@
 //! all the serde implementations and tests
 //!
 
-use crate::{Address};
+use crate::Address;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 impl Serialize for Address {

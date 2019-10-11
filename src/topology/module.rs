@@ -34,5 +34,9 @@ pub trait FilterModule {
 
     /// take ownership of some tree of nodes and filter out nodes that needs to be
     /// removed based on the filtering policies.
-    fn filter(&self, _our_node: &NodeData, _other_nodes: BTreeMap<Id, NodeData>) -> BTreeMap<Id, NodeData>;
+    fn filter(
+        &self,
+        _our_node: &NodeData,
+        _other_nodes: BTreeMap<Id, NodeData>,
+    ) -> BTreeMap<Id, NodeData>;
 }
