@@ -1,13 +1,30 @@
 #[cfg(test)]
-#[macro_use]
-extern crate quickcheck;
+#[macro_use(quickcheck)]
+extern crate quickcheck_macros;
 
-mod topic;
-
+mod address;
+mod gossip;
+mod id;
+mod layer;
+mod logs;
 mod node;
-#[cfg(feature = "serde_derive")]
-mod serde;
-pub mod topology;
+mod nodes;
+pub mod poldercast;
+mod policy;
+mod topic;
+mod topology;
+mod view;
 
-pub use self::node::{Address, Id, Node, NodeData, PrivateId};
-pub use self::topic::{InterestLevel, Proximity, Subscription, Subscriptions, Topic};
+pub use self::{
+    address::Address,
+    gossip::{Gossip, Gossips, GossipsBuilder},
+    id::Id,
+    layer::Layer,
+    logs::Logs,
+    node::{Node, NodeProfile, NodeRef},
+    nodes::Nodes,
+    policy::{DefaultPolicy, Policy, PolicyReport, Record, Strike, StrikeReason},
+    topic::{InterestLevel, Proximity, Subscription, Subscriptions, Topic},
+    topology::{GossipingError, Topology},
+    view::{Selection, ViewBuilder},
+};
