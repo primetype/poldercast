@@ -254,12 +254,12 @@ impl Rings {
             .cloned()
             .collect();
 
-        // candidates are the one that are common subscribers sharing the same common
-        // topics.
+        // candidates are the one that are common topics.
         let candidates: BTreeMap<Id, &Node> = all_nodes
             .available_nodes()
             .iter()
             .filter_map(|id| all_nodes.get(id))
+            .filter(|node| node.profile().address().is_some())
             .filter(|v| {
                 v.profile()
                     .subscriptions()
