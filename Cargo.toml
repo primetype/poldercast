@@ -15,7 +15,7 @@ Peer to Peer topology management
 [dependencies]
 thiserror = "1.0"
 multiaddr = "0.3"
-rand = "0.7"
+rand = "0.6"
 hex = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 
