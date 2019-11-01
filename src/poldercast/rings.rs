@@ -2,7 +2,7 @@ use crate::{
     GossipsBuilder, Id, Layer, Node, NodeProfile, Nodes, Selection, Subscription, Subscriptions,
     Topic, ViewBuilder,
 };
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 /// the number of neighbor for a given subscribed topic of the given node.
 ///
@@ -254,12 +254,6 @@ impl Rings {
             .cloned()
             .collect();
 
-        // these are the subscribers in common between the 2 nodes
-        let common_subscribers: BTreeSet<Id> = self_node
-            .common_subscribers(&gossip_node.profile())
-            .cloned()
-            .collect();
-
         // candidates are the one that are common subscribers sharing the same common
         // topics.
         let candidates: BTreeMap<Id, &Node> = all_nodes
@@ -267,12 +261,11 @@ impl Rings {
             .iter()
             .filter_map(|id| all_nodes.get(id))
             .filter(|v| {
-                common_subscribers.contains(v.id())
-                    && v.profile()
-                        .subscriptions()
-                        .common_subscriptions(&common_topics)
-                        .next()
-                        .is_some()
+                v.profile()
+                    .subscriptions()
+                    .common_subscriptions(&common_topics)
+                    .next()
+                    .is_some()
             })
             .map(|v| (*v.id(), v))
             .collect();

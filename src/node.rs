@@ -1,6 +1,5 @@
 use crate::{Address, Id, Logs, Proximity, Record, Subscription, Subscriptions};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeInfo {
@@ -22,8 +21,6 @@ pub struct NodeProfile {
     info: NodeInfo,
 
     subscriptions: Subscriptions,
-
-    subscribers: BTreeSet<Id>,
 }
 
 pub struct NodeProfileBuilder {
@@ -86,7 +83,6 @@ impl NodeProfileBuilder {
                 address: self.address.clone(),
             },
             subscriptions: self.subscriptions.clone(),
-            subscribers: BTreeSet::default(),
         }
     }
 }
@@ -108,10 +104,6 @@ impl NodeProfile {
         &self.subscriptions
     }
 
-    pub fn subscribers(&self) -> &BTreeSet<Id> {
-        &self.subscribers
-    }
-
     /// list all common subscriptions between the two nodes
     pub fn common_subscriptions<'a>(
         &'a self,
@@ -119,11 +111,6 @@ impl NodeProfile {
     ) -> impl Iterator<Item = &'a Subscription> {
         self.subscriptions
             .common_subscriptions(&other.subscriptions)
-    }
-
-    /// list all common subscribers between the two nodes
-    pub fn common_subscribers<'a>(&'a self, other: &'a Self) -> impl Iterator<Item = &'a Id> {
-        self.subscribers.intersection(&other.subscribers)
     }
 
     /// compute the relative proximity between these 2 nodes.
@@ -210,7 +197,6 @@ mod test {
             NodeProfile {
                 info: NodeInfo::arbitrary(g),
                 subscriptions: Subscriptions::arbitrary(g),
-                subscribers: BTreeSet::arbitrary(g),
             }
         }
     }
