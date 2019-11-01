@@ -230,6 +230,7 @@ impl Rings {
         let known_nodes = known_nodes
             .into_iter()
             .filter_map(|id| all_nodes.get(id).map(|v| (*id, v)))
+            .filter(|(_, node)| node.profile().address().is_some())
             .collect();
 
         for subscription in self_node.subscriptions().iter() {
