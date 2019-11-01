@@ -27,14 +27,15 @@ impl GossipsBuilder {
         self.gossips.insert(node)
     }
 
-    pub(crate) fn build(self, nodes: &Nodes) -> Gossips {
-        Gossips(
-            self.gossips
-                .into_iter()
-                .filter_map(|id| nodes.get(&id))
-                .map(|node| node.profile().clone())
-                .collect(),
-        )
+    pub(crate) fn build(self, identity: NodeProfile, nodes: &Nodes) -> Gossips {
+        let mut gossips = self
+            .gossips
+            .into_iter()
+            .filter_map(|id| nodes.get(&id))
+            .map(|node| node.profile().clone())
+            .collect::<Vec<NodeProfile>>();
+        gossips.push(identity);
+        Gossips(gossips)
     }
 }
 

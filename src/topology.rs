@@ -87,7 +87,7 @@ impl Topology {
             layer.gossips(&self.profile, &mut gossips_builder, &self.nodes)
         }
 
-        gossips_builder.build(&self.nodes)
+        gossips_builder.build(self.profile.clone(), &self.nodes)
     }
 
     pub fn accept_gossips(&mut self, from: Id, gossips: Gossips) {
@@ -118,7 +118,7 @@ impl Topology {
             layer.gossips(&self.profile, &mut gossips_builder, &self.nodes)
         }
 
-        gossips_builder.build(&self.nodes)
+        gossips_builder.build(self.profile.clone(), &self.nodes)
     }
 
     pub fn update_node<F>(&mut self, id: Id, update: F) -> Option<PolicyReport>
