@@ -1,6 +1,6 @@
-use crate::{GossipsBuilder, Id, Layer, NodeProfile, NodeRef, Nodes, ViewBuilder};
+use crate::{GossipsBuilder, Id, Layer, NodeProfile, Nodes, ViewBuilder};
 use rand::{seq::IteratorRandom, Rng};
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 const CYCLON_MAX_VIEW_LENGTH: usize = 20;
 const CYCLON_MAX_GOSSIPING_LENGTH: usize = 10;
@@ -11,24 +11,20 @@ const CYCLON_MAX_GOSSIPING_LENGTH: usize = 10;
 /// It also make sure we contact the least contacted node for the next
 /// gossiping round.
 #[derive(Clone, Debug)]
-pub struct Cyclon(Vec<NodeRef>);
+pub struct Cyclon(Vec<Id>);
 
 impl Cyclon {
     fn with_capacity(capacity: usize) -> Self {
         Cyclon(Vec::with_capacity(capacity))
     }
 
-    fn populate_random<R>(
-        &mut self,
-        mut rng: R,
-        known_nodes: &BTreeMap<Id, NodeRef>,
-        capacity: usize,
-    ) where
+    fn populate_random<R>(&mut self, mut rng: R, known_nodes: &BTreeSet<Id>, capacity: usize)
+    where
         R: Rng,
     {
         self.0 = known_nodes
             .iter()
-            .map(|v| v.1)
+            .map(|v| v)
             .cloned()
             .choose_multiple(&mut rng, capacity);
     }
@@ -75,7 +71,11 @@ impl Layer for Cyclon {
         })
     }
 
-    fn view(&mut self, view: &mut ViewBuilder) {
-        self.0.iter().cloned().for_each(|node| view.add(node))
+    fn view(&mut self, view_builder: &mut ViewBuilder, all_nodes: &mut Nodes) {
+        for id in self.0.iter() {
+            if let Some(node) = all_nodes.get_mut(id) {
+                view_builder.add(node)
+            }
+        }
     }
 }

@@ -1,4 +1,4 @@
-use rand::{CryptoRng, RngCore};
+use rand::RngCore;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{fmt, str::FromStr};
 
@@ -18,7 +18,7 @@ pub struct Id([u8; ID_LEN]);
 const ID_LEN: usize = 24;
 
 impl Id {
-    pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
+    pub fn generate<R: RngCore>(mut rng: R) -> Self {
         let mut id = Self::zero();
         rng.fill_bytes(&mut id.0);
         id

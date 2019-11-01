@@ -1,21 +1,8 @@
 use crate::nodes::Entry;
 use crate::{
-    DefaultPolicy, Gossips, GossipsBuilder, Id, Layer, NodeProfile, NodeRef, Nodes, Policy,
-    Selection, ViewBuilder,
+    DefaultPolicy, Gossips, GossipsBuilder, Id, Layer, Node, NodeInfo, NodeProfile, Nodes, Policy,
+    PolicyReport, Selection, ViewBuilder,
 };
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum GossipingError {
-    #[error("The node ({id:?}) does not advertise itself in the gossips")]
-    NodeDoesNotAdvertiseSelf { id: Id },
-
-    /// invalid gossip, the gossiping node has been attached to the error so
-    /// it is possible to check if as a consequence the node has been quarantined
-    ///
-    #[error("The node has gossiped invalid gossip(s)")]
-    InvalidGossip { node: NodeRef },
-}
 
 pub struct Topology {
     /// The local node identity
@@ -23,9 +10,9 @@ pub struct Topology {
 
     nodes: Nodes,
 
-    layers: Vec<Box<dyn Layer>>,
+    layers: Vec<Box<dyn Layer + Send + Sync>>,
 
-    policy: Box<dyn Policy>,
+    policy: Box<dyn Policy + Send + Sync>,
 }
 
 impl Topology {
@@ -42,30 +29,30 @@ impl Topology {
         &self.profile
     }
 
-    pub fn view(&mut self, selection: Selection) -> Vec<NodeRef> {
+    pub fn add_layer<L>(&mut self, layer: L)
+    where
+        L: Layer + Send + Sync + 'static,
+    {
+        self.layers.push(Box::new(layer));
+    }
+
+    pub fn view(&mut self, from: Option<Id>, selection: Selection) -> Vec<NodeInfo> {
         let mut view_builder = ViewBuilder::new(selection);
 
+        if let Some(from) = from {
+            view_builder.with_origin(from);
+        }
+
         for layer in self.layers.iter_mut() {
-            layer.view(&mut view_builder)
+            layer.view(&mut view_builder, &mut self.nodes)
         }
 
-        view_builder.build()
+        view_builder.build(&self.nodes)
     }
 
-    fn find_node(&mut self, public_id: Id, gossips: &Gossips) -> Option<NodeRef> {
-        match self.nodes.entry(public_id) {
-            Entry::Occupied(entry) => Some(entry.release_mut().clone()),
-            _ => gossips.find(&public_id).cloned().map(NodeRef::new),
-        }
-    }
-
-    fn update_known_nodes(
-        &mut self,
-        _from: NodeRef,
-        gossips: Gossips,
-    ) -> Result<(), GossipingError> {
+    fn update_known_nodes(&mut self, _from: Id, gossips: Gossips) {
         for gossip in gossips.into_iter() {
-            if gossip.public_id() == self.profile.public_id() {
+            if gossip.id() == self.profile.id() {
                 // ignore ourselves
                 continue;
             }
@@ -79,61 +66,49 @@ impl Topology {
                 }
             }
 
-            match self.nodes.entry(*gossip.public_id()) {
+            match self.nodes.entry(*gossip.id()) {
                 Entry::Occupied(mut occupied) => {
-                    occupied.modify(&mut self.policy, |node| node.update_gossip(gossip))
+                    occupied.modify(&mut self.policy, |node| node.update_gossip(gossip));
                 }
                 Entry::Vacant(mut vacant) => {
-                    vacant.insert(NodeRef::new(gossip.node));
+                    vacant.insert(Node::new(gossip));
                 }
             }
         }
-
-        Ok(())
     }
 
-    pub fn initiate_gossips(&mut self, with: NodeRef) -> Gossips {
-        with.node_mut().logs_mut().gossiping();
+    pub fn initiate_gossips(&mut self, with: Id) -> Gossips {
+        if let Some(with) = self.nodes.get_mut(&with) {
+            with.logs_mut().gossiping();
+        }
         let mut gossips_builder = GossipsBuilder::new(with);
 
         for layer in self.layers.iter_mut() {
             layer.gossips(&self.profile, &mut gossips_builder, &self.nodes)
         }
 
-        gossips_builder.build()
+        gossips_builder.build(&self.nodes)
     }
 
-    pub fn accept_gossips(&mut self, from: Id, gossips: Gossips) -> Result<(), GossipingError> {
-        let from = if let Some(from) = self.find_node(from, &gossips) {
-            from
-        } else {
-            return Err(GossipingError::NodeDoesNotAdvertiseSelf { id: from });
-        };
+    pub fn accept_gossips(&mut self, from: Id, gossips: Gossips) {
+        if let Some(from) = self.nodes.get_mut(&from) {
+            from.logs_mut().gossiping();
+        }
 
-        from.node_mut().logs_mut().gossiping();
-        self.update_known_nodes(from, gossips)?;
+        self.update_known_nodes(from, gossips);
 
         for layer in self.layers.iter_mut() {
             layer.reset();
             layer.populate(&self.profile, &self.nodes);
         }
-
-        Ok(())
     }
 
-    pub fn exchange_gossips(
-        &mut self,
-        with: &Id,
-        gossips: Gossips,
-    ) -> Result<Gossips, GossipingError> {
-        let with = if let Some(with) = self.find_node(*with, &gossips) {
-            with
-        } else {
-            return Err(GossipingError::NodeDoesNotAdvertiseSelf { id: *with });
-        };
+    pub fn exchange_gossips(&mut self, with: Id, gossips: Gossips) -> Gossips {
+        if let Some(with) = self.nodes.get_mut(&with) {
+            with.logs_mut().gossiping();
+        }
 
-        with.node_mut().logs_mut().gossiping();
-        self.update_known_nodes(with.clone(), gossips)?;
+        self.update_known_nodes(with.clone(), gossips);
 
         let mut gossips_builder = GossipsBuilder::new(with);
 
@@ -143,6 +118,13 @@ impl Topology {
             layer.gossips(&self.profile, &mut gossips_builder, &self.nodes)
         }
 
-        Ok(gossips_builder.build())
+        gossips_builder.build(&self.nodes)
+    }
+
+    pub fn update_node<F>(&mut self, id: Id, update: F) -> Option<PolicyReport>
+    where
+        F: FnOnce(&mut Node),
+    {
+        self.nodes.entry(id).and_modify(&mut self.policy, update)
     }
 }

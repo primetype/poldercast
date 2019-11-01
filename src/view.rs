@@ -1,5 +1,5 @@
-use crate::{Id, NodeRef, Topic};
-use std::collections::BTreeMap;
+use crate::{Id, Node, NodeInfo, Nodes, Topic};
+use std::collections::HashSet;
 
 pub enum Selection {
     Topic { topic: Topic },
@@ -7,11 +7,11 @@ pub enum Selection {
 }
 
 pub struct ViewBuilder {
-    event_origin: Option<NodeRef>,
+    event_origin: Option<Id>,
 
     selection: Selection,
 
-    view: BTreeMap<Id, NodeRef>,
+    view: HashSet<Id>,
 }
 
 impl ViewBuilder {
@@ -19,16 +19,16 @@ impl ViewBuilder {
         Self {
             event_origin: None,
             selection,
-            view: BTreeMap::new(),
+            view: HashSet::new(),
         }
     }
 
-    pub fn with_origin(mut self, origin: NodeRef) -> Self {
+    pub fn with_origin(&mut self, origin: Id) -> &Self {
         self.event_origin = Some(origin);
         self
     }
 
-    pub fn origin(&self) -> Option<&NodeRef> {
+    pub fn origin(&self) -> Option<&Id> {
         self.event_origin.as_ref()
     }
 
@@ -36,18 +36,19 @@ impl ViewBuilder {
         &self.selection
     }
 
-    pub fn add(&mut self, node: NodeRef) {
+    pub fn add(&mut self, node: &mut Node) {
         if let Selection::Topic { topic } = self.selection() {
-            node.node_mut().logs_mut().use_of(*topic);
+            node.logs_mut().use_of(*topic);
         }
 
-        self.view.insert(node.public_id(), node);
+        self.view.insert(*node.id());
     }
 
-    pub fn build(self) -> Vec<NodeRef> {
+    pub fn build(self, nodes: &Nodes) -> Vec<NodeInfo> {
         self.view
             .into_iter()
-            .map(|(_, node_ref)| node_ref)
+            .filter_map(|id| nodes.get(&id))
+            .map(|node| node.info().clone())
             .collect()
     }
 }

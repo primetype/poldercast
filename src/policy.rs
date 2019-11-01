@@ -1,4 +1,4 @@
-use crate::NodeRef;
+use crate::Node;
 use std::{collections::VecDeque, time::SystemTime};
 
 /// default quarantine duration is 30min
@@ -34,7 +34,7 @@ pub enum PolicyReport {
 }
 
 pub trait Policy {
-    fn check(&mut self, node: &mut NodeRef) -> PolicyReport;
+    fn check(&mut self, node: &mut Node) -> PolicyReport;
 }
 
 impl Default for DefaultPolicy {
@@ -43,16 +43,14 @@ impl Default for DefaultPolicy {
     }
 }
 
-impl Policy for Box<dyn Policy> {
-    fn check(&mut self, node: &mut NodeRef) -> PolicyReport {
+impl<P: Policy + ?Sized> Policy for Box<P> {
+    fn check(&mut self, node: &mut Node) -> PolicyReport {
         self.as_mut().check(node)
     }
 }
 
 impl Policy for DefaultPolicy {
-    fn check(&mut self, node: &mut NodeRef) -> PolicyReport {
-        let mut node = node.node_mut();
-
+    fn check(&mut self, node: &mut Node) -> PolicyReport {
         // if the node is already quarantined
         if let Some(since) = node.logs().quarantined() {
             let duration = since.elapsed().unwrap();

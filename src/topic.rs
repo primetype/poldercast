@@ -22,8 +22,8 @@ pub enum InterestLevel {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Subscription {
-    topic: Topic,
-    interest: InterestLevel,
+    pub topic: Topic,
+    pub interest: InterestLevel,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -51,6 +51,10 @@ impl Topic {
 impl Subscriptions {
     pub fn iter(&self) -> impl Iterator<Item = &Subscription> {
         self.0.iter()
+    }
+
+    pub fn insert(&mut self, subscription: Subscription) {
+        self.0.insert(subscription);
     }
 
     pub fn contains(&self, topic: Topic) -> bool {
@@ -170,6 +174,14 @@ impl Ord for Proximity {
         } else {
             Equal
         }
+    }
+}
+
+/* Convert ****************************************************************** */
+
+impl From<u32> for Topic {
+    fn from(v: u32) -> Self {
+        Topic(v)
     }
 }
 

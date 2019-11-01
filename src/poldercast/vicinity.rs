@@ -1,5 +1,4 @@
-use crate::{GossipsBuilder, Id, Layer, NodeProfile, NodeRef, Nodes, ViewBuilder};
-use std::collections::BTreeMap;
+use crate::{GossipsBuilder, Id, Layer, Node, NodeProfile, Nodes, ViewBuilder};
 
 const VICINITY_MAX_VIEW_SIZE: usize = 20;
 const VICINITY_MAX_GOSSIP_LENGTH: usize = 10;
@@ -11,7 +10,7 @@ const VICINITY_MAX_GOSSIP_LENGTH: usize = 10;
 /// events to arbitrary subscribers of a topic.
 #[derive(Clone, Debug)]
 pub struct Vicinity {
-    view: Vec<NodeRef>,
+    view: Vec<Id>,
 }
 impl Layer for Vicinity {
     fn alias(&self) -> &'static str {
@@ -25,7 +24,12 @@ impl Layer for Vicinity {
     fn populate(&mut self, identity: &NodeProfile, all_nodes: &Nodes) {
         self.view = self.select_closest_nodes(
             identity,
-            all_nodes.available_nodes(),
+            all_nodes
+                .available_nodes()
+                .into_iter()
+                .filter(|id| *id != identity.id())
+                .filter_map(|id| all_nodes.get(id))
+                .collect(),
             VICINITY_MAX_VIEW_SIZE,
         )
     }
@@ -37,8 +41,16 @@ impl Layer for Vicinity {
         all_nodes: &Nodes,
     ) {
         let gossips = self.select_closest_nodes(
-            gossips_builder.recipient().node().profile(),
-            all_nodes.available_nodes(),
+            all_nodes
+                .get(gossips_builder.recipient())
+                .unwrap()
+                .profile(),
+            all_nodes
+                .available_nodes()
+                .into_iter()
+                .filter(|id| *id != gossips_builder.recipient())
+                .filter_map(|id| all_nodes.get(id))
+                .collect(),
             VICINITY_MAX_GOSSIP_LENGTH,
         );
         for gossip in gossips {
@@ -46,10 +58,12 @@ impl Layer for Vicinity {
         }
     }
 
-    fn view(&mut self, view_builder: &mut ViewBuilder) {
-        self.view
-            .iter()
-            .for_each(|node| view_builder.add(node.clone()));
+    fn view(&mut self, view_builder: &mut ViewBuilder, all_nodes: &mut Nodes) {
+        for id in self.view.iter() {
+            if let Some(node) = all_nodes.get_mut(id) {
+                view_builder.add(node)
+            }
+        }
     }
 }
 impl Vicinity {
@@ -58,17 +72,20 @@ impl Vicinity {
     fn select_closest_nodes(
         &self,
         to: &NodeProfile,
-        known_nodes: &BTreeMap<Id, NodeRef>,
+        mut profiles: Vec<&Node>,
         max: usize,
-    ) -> Vec<NodeRef> {
-        let mut profiles: Vec<_> = known_nodes.values().collect();
-
+    ) -> Vec<Id> {
         profiles.sort_by(|left, right| {
-            to.proximity(left.node().profile())
-                .cmp(&to.proximity(right.node().profile()))
+            to.proximity(left.profile())
+                .cmp(&to.proximity(right.profile()))
         });
 
-        profiles.into_iter().take(max).cloned().collect()
+        profiles
+            .into_iter()
+            .take(max)
+            .map(|v| v.id())
+            .copied()
+            .collect()
     }
 }
 

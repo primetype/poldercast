@@ -1,75 +1,55 @@
-use crate::{Address, Id, NodeProfile, NodeRef};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use crate::{Id, NodeProfile, Nodes};
+use std::collections::HashSet;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct GossipsBuilder {
-    recipient: NodeRef,
+    recipient: Id,
 
-    gossips: HashMap<Id, NodeRef>,
+    gossips: HashSet<Id>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Gossips(Vec<Gossip>);
-
-/// message that is exchanged about a [`Node`] between gossiping nodes.
-///
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Gossip {
-    pub(crate) node: NodeProfile,
-}
+pub struct Gossips(Vec<NodeProfile>);
 
 impl GossipsBuilder {
-    pub(crate) fn new(recipient: NodeRef) -> Self {
+    pub(crate) fn new(recipient: Id) -> Self {
         Self {
             recipient,
-            gossips: HashMap::default(),
+            gossips: HashSet::default(),
         }
     }
 
-    pub fn recipient(&self) -> &NodeRef {
+    pub fn recipient(&self) -> &Id {
         &self.recipient
     }
 
-    pub fn add(&mut self, node: NodeRef) -> Option<NodeRef> {
-        self.gossips.insert(node.public_id(), node)
+    pub fn add(&mut self, node: Id) -> bool {
+        self.gossips.insert(node)
     }
 
-    pub(crate) fn build(self) -> Gossips {
+    pub(crate) fn build(self, nodes: &Nodes) -> Gossips {
         Gossips(
             self.gossips
                 .into_iter()
-                .map(|(_, node_ref)| Gossip::new(node_ref))
+                .filter_map(|id| nodes.get(&id))
+                .map(|node| node.profile().clone())
                 .collect(),
         )
     }
 }
 
-impl Gossip {
-    fn new(node_ref: NodeRef) -> Self {
-        Gossip {
-            node: node_ref.node().profile().clone(),
-        }
-    }
-
-    pub(crate) fn public_id(&self) -> &Id {
-        self.node.public_id()
-    }
-
-    pub(crate) fn address(&self) -> Option<&Address> {
-        self.node.address()
-    }
-}
-
 impl Gossips {
-    pub(crate) fn into_iter(self) -> impl Iterator<Item = Gossip> {
+    pub fn into_iter(self) -> impl Iterator<Item = NodeProfile> {
         self.0.into_iter()
     }
 
-    pub(crate) fn find(&self, public_id: &Id) -> Option<&NodeProfile> {
+    pub fn inner(self) -> Vec<NodeProfile> {
         self.0
-            .iter()
-            .map(|gossip| &gossip.node)
-            .find(|profile| profile.public_id() == public_id)
+    }
+}
+
+impl From<Vec<NodeProfile>> for Gossips {
+    fn from(gossips: Vec<NodeProfile>) -> Self {
+        Gossips(gossips)
     }
 }

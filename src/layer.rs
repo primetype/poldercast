@@ -21,7 +21,7 @@ pub trait Layer {
     fn populate(&mut self, identity: &NodeProfile, all_nodes: &Nodes);
 
     /// based on the populated layer, provide nodes to the [`ViewBuilder`].
-    fn view(&mut self, view: &mut ViewBuilder);
+    fn view(&mut self, view: &mut ViewBuilder, all_nodes: &mut Nodes);
 
     /// update the [`GossipsBuilder`], effectively preparing the list of gossips
     /// to share with the recipient (see [`GossipsBuilder`]). To build the gossips

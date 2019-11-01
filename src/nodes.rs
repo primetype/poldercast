@@ -1,111 +1,126 @@
-use crate::{Id, NodeRef, Policy, PolicyReport};
-use std::collections::{BTreeMap, HashMap};
+use crate::{Id, Node, Policy, PolicyReport};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 #[derive(Default, Debug)]
 pub struct Nodes {
-    all: HashMap<Id, NodeRef>,
+    all: HashMap<Id, Node>,
 
-    quarantined: HashMap<Id, NodeRef>,
+    quarantined: HashSet<Id>,
 
-    available: BTreeMap<Id, NodeRef>,
+    available: BTreeSet<Id>,
 }
 
 pub enum Entry<'a> {
-    Vacant(NodeEntry<'a>),
-    Occupied(NodeEntry<'a>),
+    Vacant(VacantEntry<'a>),
+    Occupied(OccupiedEntry<'a>),
 }
 
-pub struct NodeEntry<'a> {
+pub struct VacantEntry<'a> {
     nodes: &'a mut Nodes,
-    public_id: Id,
+    id: Id,
+}
+
+pub struct OccupiedEntry<'a> {
+    id: Id,
+    nodes: &'a mut Nodes,
 }
 
 impl Nodes {
+    pub(crate) fn get<'a>(&'a self, id: &Id) -> Option<&'a Node> {
+        self.all.get(id)
+    }
+
+    pub(crate) fn get_mut<'a>(&'a mut self, id: &Id) -> Option<&'a mut Node> {
+        self.all.get_mut(id)
+    }
+
     pub fn entry(&mut self, public_id: Id) -> Entry<'_> {
         if self.all.contains_key(&public_id) {
-            Entry::Occupied(NodeEntry::new(self, public_id))
+            Entry::Occupied(OccupiedEntry::new(self, public_id))
         } else {
-            Entry::Vacant(NodeEntry::new(self, public_id))
+            Entry::Vacant(VacantEntry::new(self, public_id))
         }
     }
 
-    pub fn available_nodes(&self) -> &BTreeMap<Id, NodeRef> {
+    pub fn available_nodes(&self) -> &BTreeSet<Id> {
         &self.available
     }
 
-    pub fn quarantined_nodes(&self) -> &HashMap<Id, NodeRef> {
+    pub fn quarantined_nodes(&self) -> &HashSet<Id> {
         &self.quarantined
     }
 
-    fn insert(&mut self, node: NodeRef) -> Option<NodeRef> {
-        let public_id = *node.node().profile().public_id();
-        self.available.insert(public_id, node.clone());
-        self.all.insert(public_id, node.clone())
+    fn insert(&mut self, node: Node) -> Option<Node> {
+        let id = *node.id();
+        self.available.insert(id);
+        self.all.insert(id, node.clone())
     }
 }
 
-impl<'a> NodeEntry<'a> {
-    fn new(nodes: &'a mut Nodes, public_id: Id) -> Self {
-        NodeEntry { nodes, public_id }
+impl<'a> VacantEntry<'a> {
+    fn new(nodes: &'a mut Nodes, id: Id) -> Self {
+        VacantEntry { nodes, id }
     }
 
-    pub(crate) fn insert(&mut self, default: NodeRef) {
-        debug_assert_eq!(self.key(), default.node().profile().public_id());
-        assert!(self.nodes.insert(default).is_none())
+    pub(crate) fn insert(&mut self, default: Node) {
+        debug_assert_eq!(self.key(), default.id());
+        assert!(self.nodes.insert(default).is_none());
     }
 
     fn key(&self) -> &Id {
-        &self.public_id
+        &self.id
+    }
+}
+
+impl<'a> OccupiedEntry<'a> {
+    fn new(nodes: &'a mut Nodes, id: Id) -> Self {
+        OccupiedEntry { nodes, id }
     }
 
-    pub(crate) fn release_mut(self) -> &'a mut NodeRef {
-        self.nodes.all.get_mut(&self.public_id).unwrap()
+    fn key(&self) -> &Id {
+        &self.id
     }
 
-    pub(crate) fn modify<P, T, F>(&mut self, policy: &mut P, f: F) -> T
+    pub(crate) fn modify<P, F>(&mut self, policy: &mut P, f: F) -> PolicyReport
     where
-        F: FnOnce(&mut NodeRef) -> T,
+        F: FnOnce(&mut Node),
         P: Policy,
     {
-        let node = self.nodes.all.get_mut(&self.public_id).unwrap();
-        let result = f(node);
+        let node = self.nodes.all.get_mut(&self.id).unwrap();
+        f(node);
+        let report = policy.check(node);
 
-        match policy.check(node) {
+        match report {
             PolicyReport::None => {}
             PolicyReport::Forget => {
-                self.nodes.available.remove(&self.public_id);
-                self.nodes.quarantined.remove(&self.public_id);
-                self.nodes.all.remove(&self.public_id);
+                self.nodes.available.remove(&self.id);
+                self.nodes.quarantined.remove(&self.id);
+                self.nodes.all.remove(&self.id);
             }
             PolicyReport::Quarantine => {
-                self.nodes.available.remove(&self.public_id);
-                self.nodes.quarantined.insert(self.public_id, node.clone());
-                node.node_mut().logs_mut().quarantine();
+                self.nodes.available.remove(&self.id);
+                self.nodes.quarantined.insert(self.id);
+                node.logs_mut().quarantine();
             }
             PolicyReport::LiftQuarantine => {
-                self.nodes.available.insert(self.public_id, node.clone());
-                self.nodes.quarantined.remove(&self.public_id);
-                node.node_mut().logs_mut().lift_quarantine();
+                self.nodes.available.insert(self.id);
+                self.nodes.quarantined.remove(&self.id);
+                node.logs_mut().lift_quarantine();
             }
         }
 
-        result
+        report
     }
 }
 
 impl<'a> Entry<'a> {
     /// Ensures a value is in the entry by inserting the default if empty,
     /// and returns a mutable reference to the value in the entry.
-    pub fn or_insert(self, default: NodeRef) -> &'a mut NodeRef {
-        let node_entry = match self {
-            Entry::Vacant(mut node_entry) => {
-                node_entry.insert(default);
-                node_entry
-            }
-            Entry::Occupied(node_entry) => node_entry,
-        };
-
-        node_entry.release_mut()
+    pub fn or_insert(self, default: Node) {
+        match self {
+            Entry::Vacant(mut node_entry) => node_entry.insert(default),
+            Entry::Occupied(_node_entry) => {}
+        }
     }
 
     /// Ensures a value is in the entry by inserting the result of the default function
@@ -113,19 +128,14 @@ impl<'a> Entry<'a> {
     ///
     /// The advantage of this function over `or_insert` is that it is called only if
     /// the field was vacant
-    pub fn or_insert_with<F>(self, default: F) -> &'a mut NodeRef
+    pub fn or_insert_with<F>(self, default: F)
     where
-        F: FnOnce() -> NodeRef,
+        F: FnOnce() -> Node,
     {
-        let node_entry = match self {
-            Entry::Vacant(mut node_entry) => {
-                node_entry.insert(default());
-                node_entry
-            }
-            Entry::Occupied(node_entry) => node_entry,
-        };
-
-        node_entry.release_mut()
+        match self {
+            Entry::Vacant(mut node_entry) => node_entry.insert(default()),
+            Entry::Occupied(_node_entry) => {}
+        }
     }
 
     pub fn key(&self) -> &Id {
@@ -137,17 +147,14 @@ impl<'a> Entry<'a> {
 
     /// Provides in-place mutable access to an occupied entry before any potential
     /// inserts into the collection
-    pub fn and_modify<P, F>(self, policy: &mut P, f: F) -> Self
+    pub fn and_modify<P, F>(self, policy: &mut P, f: F) -> Option<PolicyReport>
     where
-        F: FnOnce(&mut NodeRef),
+        F: FnOnce(&mut Node),
         P: Policy,
     {
         match self {
-            Entry::Occupied(mut node_entry) => {
-                node_entry.modify(policy, f);
-                Entry::Occupied(node_entry)
-            }
-            entry => entry,
+            Entry::Occupied(mut node_entry) => Some(node_entry.modify(policy, f)),
+            Entry::Vacant(_) => None,
         }
     }
 }

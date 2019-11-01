@@ -1,12 +1,12 @@
-use crate::{
-    Address, Gossip, Id, Logs, Proximity, Record, StrikeReason, Subscription, Subscriptions,
-};
+use crate::{Address, Id, Logs, Proximity, Record, Subscription, Subscriptions};
 use serde::{Deserialize, Serialize};
-use std::{
-    cell::{Ref, RefCell, RefMut},
-    collections::BTreeSet,
-    rc::Rc,
-};
+use std::collections::BTreeSet;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct NodeInfo {
+    id: Id,
+    address: Option<Address>,
+}
 
 /// The profile of the node, its [`Id`], its [`Address`] and its
 /// [`Subscriptions`].
@@ -19,13 +19,18 @@ use std::{
 /// [`Subscriptions`]: ./struct.Subscriptions.html
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeProfile {
-    public_id: Id,
-
-    address: Option<Address>,
+    #[serde(flatten)]
+    info: NodeInfo,
 
     subscriptions: Subscriptions,
 
     subscribers: BTreeSet<Id>,
+}
+
+pub struct NodeProfileBuilder {
+    id: Id,
+    address: Option<Address>,
+    subscriptions: Subscriptions,
 }
 
 /// Data we store about a node, this includes the [`NodeProfile`] in the
@@ -42,18 +47,62 @@ pub struct Node {
     record: Record,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NodeRef {
-    node: Rc<RefCell<Node>>,
+impl NodeInfo {
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+    pub fn address(&self) -> Option<&Address> {
+        self.address.as_ref()
+    }
+}
+
+impl NodeProfileBuilder {
+    pub fn new() -> Self {
+        Self {
+            id: Id::generate(rand::thread_rng()),
+            address: None,
+            subscriptions: Subscriptions::default(),
+        }
+    }
+
+    pub fn id(&mut self, id: Id) -> &mut Self {
+        self.id = id;
+        self
+    }
+
+    pub fn address(&mut self, address: Address) -> &mut Self {
+        self.address = Some(address);
+        self
+    }
+
+    pub fn add_subscription(&mut self, subscription: Subscription) -> &mut Self {
+        self.subscriptions.insert(subscription);
+        self
+    }
+
+    pub fn build(&self) -> NodeProfile {
+        NodeProfile {
+            info: NodeInfo {
+                id: self.id,
+                address: self.address.clone(),
+            },
+            subscriptions: self.subscriptions.clone(),
+            subscribers: BTreeSet::default(),
+        }
+    }
 }
 
 impl NodeProfile {
-    pub fn public_id(&self) -> &Id {
-        &self.public_id
+    pub(crate) fn info(&self) -> &NodeInfo {
+        &self.info
+    }
+
+    pub fn id(&self) -> &Id {
+        &self.info.id
     }
 
     pub fn address(&self) -> Option<&Address> {
-        self.address.as_ref()
+        self.info.address.as_ref()
     }
 
     pub fn subscriptions(&self) -> &Subscriptions {
@@ -93,7 +142,7 @@ impl NodeProfile {
 }
 
 impl Node {
-    fn new(profile: NodeProfile) -> Self {
+    pub(crate) fn new(profile: NodeProfile) -> Self {
         Self {
             profile,
             logs: Logs::default(),
@@ -101,12 +150,24 @@ impl Node {
         }
     }
 
+    pub(crate) fn info(&self) -> &NodeInfo {
+        &self.profile().info()
+    }
+
+    pub fn address(&self) -> Option<&Address> {
+        self.profile().address()
+    }
+
+    pub fn id(&self) -> &Id {
+        self.profile().id()
+    }
+
     pub fn profile(&self) -> &NodeProfile {
         &self.profile
     }
 
-    fn update_gossip(&mut self, gossip: Gossip) {
-        self.update_profile(gossip.node);
+    pub(crate) fn update_gossip(&mut self, gossip: NodeProfile) {
+        self.update_profile(gossip);
         self.logs_mut().updated();
     }
 
@@ -118,7 +179,7 @@ impl Node {
         &self.record
     }
 
-    pub(crate) fn record_mut(&mut self) -> &mut Record {
+    pub fn record_mut(&mut self) -> &mut Record {
         &mut self.record
     }
 
@@ -126,38 +187,7 @@ impl Node {
         &self.logs
     }
 
-    pub(crate) fn logs_mut(&mut self) -> &mut Logs {
+    pub fn logs_mut(&mut self) -> &mut Logs {
         &mut self.logs
-    }
-}
-
-impl NodeRef {
-    pub(crate) fn new(profile: NodeProfile) -> Self {
-        Self {
-            node: Rc::new(RefCell::new(Node::new(profile))),
-        }
-    }
-
-    pub fn node(&self) -> Ref<Node> {
-        self.node.borrow()
-    }
-
-    pub fn node_mut(&self) -> RefMut<Node> {
-        self.node.borrow_mut()
-    }
-
-    pub fn public_id(&self) -> Id {
-        *self.node().profile().public_id()
-    }
-
-    pub fn strike(&self, strike: StrikeReason) {
-        self.node_mut().record.strike(strike);
-    }
-
-    /// update the [`NodeProfile`] with the newly provided one.
-    ///
-    /// [`NodeProfile`]: ./struct.NodeProfile.html
-    pub(crate) fn update_gossip(&mut self, gossip: Gossip) {
-        self.node_mut().update_gossip(gossip)
     }
 }

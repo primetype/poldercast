@@ -17,14 +17,14 @@ mod view;
 
 pub use self::{
     address::Address,
-    gossip::{Gossip, Gossips, GossipsBuilder},
+    gossip::{Gossips, GossipsBuilder},
     id::Id,
     layer::Layer,
     logs::Logs,
-    node::{Node, NodeProfile, NodeRef},
+    node::{Node, NodeInfo, NodeProfile, NodeProfileBuilder},
     nodes::Nodes,
     policy::{DefaultPolicy, Policy, PolicyReport, Record, Strike, StrikeReason},
     topic::{InterestLevel, Proximity, Subscription, Subscriptions, Topic},
-    topology::{GossipingError, Topology},
+    topology::Topology,
     view::{Selection, ViewBuilder},
 };
