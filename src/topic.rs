@@ -195,3 +195,82 @@ impl FromIterator<Subscription> for Subscriptions {
         Subscriptions(BTreeSet::from_iter(iter))
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+
+    impl Arbitrary for Topic {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            Topic(u32::arbitrary(g))
+        }
+    }
+
+    impl Arbitrary for InterestLevel {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            match u8::arbitrary(g) % 3 {
+                0 => InterestLevel::Low,
+                1 => InterestLevel::Normal,
+                _ => InterestLevel::High,
+            }
+        }
+    }
+
+    impl Arbitrary for Subscription {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            Subscription {
+                topic: Topic::arbitrary(g),
+                interest: InterestLevel::arbitrary(g),
+            }
+        }
+    }
+
+    impl Arbitrary for Subscriptions {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            Subscriptions(BTreeSet::arbitrary(g))
+        }
+    }
+
+    #[quickcheck]
+    fn topic_encode_decode_json(topic: Topic) -> bool {
+        let encoded = serde_json::to_string(&topic).unwrap();
+        let decoded = serde_json::from_str(&encoded).unwrap();
+        topic == decoded
+    }
+
+    #[quickcheck]
+    fn topic_encode_decode_bincode(topic: Topic) -> bool {
+        let encoded = bincode::serialize(&topic).unwrap();
+        let decoded = bincode::deserialize(&encoded).unwrap();
+        topic == decoded
+    }
+
+    #[quickcheck]
+    fn subscription_encode_decode_json(subscription: Subscription) -> bool {
+        let encoded = serde_json::to_string(&subscription).unwrap();
+        let decoded = serde_json::from_str(&encoded).unwrap();
+        subscription == decoded
+    }
+
+    #[quickcheck]
+    fn subscription_encode_decode_bincode(subscription: Subscription) -> bool {
+        let encoded = bincode::serialize(&subscription).unwrap();
+        let decoded = bincode::deserialize(&encoded).unwrap();
+        subscription == decoded
+    }
+
+    #[quickcheck]
+    fn subscriptions_encode_decode_json(subscriptions: Subscriptions) -> bool {
+        let encoded = serde_json::to_string(&subscriptions).unwrap();
+        let decoded = serde_json::from_str(&encoded).unwrap();
+        subscriptions == decoded
+    }
+
+    #[quickcheck]
+    fn subscriptions_encode_decode_bincode(subscriptions: Subscriptions) -> bool {
+        let encoded = bincode::serialize(&subscriptions).unwrap();
+        let decoded = bincode::deserialize(&encoded).unwrap();
+        subscriptions == decoded
+    }
+}

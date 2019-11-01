@@ -19,7 +19,6 @@ pub struct NodeInfo {
 /// [`Subscriptions`]: ./struct.Subscriptions.html
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeProfile {
-    #[serde(flatten)]
     info: NodeInfo,
 
     subscriptions: Subscriptions,
@@ -189,5 +188,58 @@ impl Node {
 
     pub fn logs_mut(&mut self) -> &mut Logs {
         &mut self.logs
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+
+    impl Arbitrary for NodeInfo {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            NodeInfo {
+                id: Id::arbitrary(g),
+                address: Arbitrary::arbitrary(g),
+            }
+        }
+    }
+
+    impl Arbitrary for NodeProfile {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            NodeProfile {
+                info: NodeInfo::arbitrary(g),
+                subscriptions: Subscriptions::arbitrary(g),
+                subscribers: BTreeSet::arbitrary(g),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn node_info_encode_decode_json(node_info: NodeInfo) -> bool {
+        let encoded = serde_json::to_string(&node_info).unwrap();
+        let decoded = serde_json::from_str(&encoded).unwrap();
+        node_info == decoded
+    }
+
+    #[quickcheck]
+    fn node_info_encode_decode_bincode(node_info: NodeInfo) -> bool {
+        let encoded = bincode::serialize(&node_info).unwrap();
+        let decoded = bincode::deserialize(&encoded).unwrap();
+        node_info == decoded
+    }
+
+    #[quickcheck]
+    fn node_profile_encode_decode_json(node_profile: NodeProfile) -> bool {
+        let encoded = serde_json::to_string(&node_profile).unwrap();
+        let decoded = serde_json::from_str(&encoded).unwrap();
+        node_profile == decoded
+    }
+
+    #[quickcheck]
+    fn node_profile_encode_decode_bincode(node_profile: NodeProfile) -> bool {
+        let encoded = bincode::serialize(&node_profile).unwrap();
+        let decoded = bincode::deserialize(&encoded).unwrap();
+        node_profile == decoded
     }
 }
