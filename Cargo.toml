@@ -1,6 +1,6 @@
 [package]
 name = "poldercast"
-version = "0.9.2"
+version = "0.9.3"
 license = "MIT OR Apache-2.0"
 authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>"]
 edition = "2018"
@@ -13,7 +13,6 @@ Peer to Peer topology management
 """
 
 [dependencies]
-thiserror = "1.0"
 multiaddr = "0.3"
 rand = "0.6"
 hex = "0.4"
