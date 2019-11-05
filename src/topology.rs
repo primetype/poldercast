@@ -36,6 +36,13 @@ impl Topology {
         self.layers.push(Box::new(layer));
     }
 
+    pub fn set_policy<P>(&mut self, policy: P)
+    where
+        P: Policy + Send + Sync + 'static,
+    {
+        self.policy = Box::new(policy);
+    }
+
     pub fn view(&mut self, from: Option<Id>, selection: Selection) -> Vec<NodeInfo> {
         let mut view_builder = ViewBuilder::new(selection);
 
