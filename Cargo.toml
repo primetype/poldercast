@@ -1,6 +1,6 @@
 [package]
 name = "poldercast"
-version = "0.9.4"
+version = "0.9.5"
 license = "MIT OR Apache-2.0"
 authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>"]
 edition = "2018"
