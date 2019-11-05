@@ -91,7 +91,7 @@ impl Record {
         self.strikes.is_empty()
     }
 
-    fn clean_slate(&mut self) {
+    pub fn clean_slate(&mut self) {
         self.strikes = VecDeque::default()
     }
 
