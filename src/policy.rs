@@ -1,8 +1,11 @@
 use crate::Node;
-use std::{collections::VecDeque, time::SystemTime};
+use std::{
+    collections::VecDeque,
+    time::{Duration, SystemTime},
+};
 
 /// default quarantine duration is 30min
-const DEFAULT_QUARANTINE_DURATION: u64 = 1800;
+const DEFAULT_QUARANTINE_DURATION: Duration = Duration::from_secs(1800);
 
 pub struct DefaultPolicy;
 
@@ -55,12 +58,10 @@ impl Policy for DefaultPolicy {
         if let Some(since) = node.logs().quarantined() {
             let duration = since.elapsed().unwrap();
 
-            if duration < std::time::Duration::from_secs(DEFAULT_QUARANTINE_DURATION) {
+            if duration < DEFAULT_QUARANTINE_DURATION {
                 // the node still need to do some quarantine time
                 PolicyReport::None
-            } else if node.logs().last_update().elapsed().unwrap()
-                < std::time::Duration::from_secs(DEFAULT_QUARANTINE_DURATION)
-            {
+            } else if node.logs().last_update().elapsed().unwrap() < DEFAULT_QUARANTINE_DURATION {
                 // the node has been quarantined long enough, check if it has been updated
                 // while being quarantined (i.e. the node is still up and advertising itself
                 // or others are still gossiping about it.)
