@@ -7,6 +7,7 @@ pub struct Nodes {
 
     quarantined: HashSet<Id>,
 
+    not_reachable: BTreeSet<Id>,
     available: BTreeSet<Id>,
 }
 
@@ -46,13 +47,25 @@ impl Nodes {
         &self.available
     }
 
+    /// access nodes that are connected to us but not necessarily reachable
+    ///
+    /// This can be nodes that are behind a firewall or a NAT and that can't do
+    /// hole punching to allow other nodes to connect to them.
+    pub fn unreachable_nodes(&self) -> &BTreeSet<Id> {
+        &self.not_reachable
+    }
+
     pub fn quarantined_nodes(&self) -> &HashSet<Id> {
         &self.quarantined
     }
 
     fn insert(&mut self, node: Node) -> Option<Node> {
         let id = *node.id();
-        self.available.insert(id);
+        if node.address().is_some() {
+            self.available.insert(id);
+        } else {
+            self.not_reachable.insert(id);
+        }
         self.all.insert(id, node.clone())
     }
 }
@@ -87,23 +100,41 @@ impl<'a> OccupiedEntry<'a> {
         P: Policy,
     {
         let node = self.nodes.all.get_mut(&self.id).unwrap();
+        let was_reachable = node.address().is_some();
         f(node);
         let report = policy.check(node);
 
         match report {
-            PolicyReport::None => {}
+            PolicyReport::None => {
+                let now_reachable = node.address().is_some();
+                if was_reachable && !now_reachable {
+                    if self.nodes.available.remove(&self.id) {
+                        self.nodes.not_reachable.insert(self.id);
+                    }
+                } else if !was_reachable && now_reachable {
+                    if self.nodes.not_reachable.remove(&self.id) {
+                        self.nodes.available.insert(self.id);
+                    }
+                }
+            }
             PolicyReport::Forget => {
                 self.nodes.available.remove(&self.id);
+                self.nodes.not_reachable.remove(&self.id);
                 self.nodes.quarantined.remove(&self.id);
                 self.nodes.all.remove(&self.id);
             }
             PolicyReport::Quarantine => {
                 self.nodes.available.remove(&self.id);
+                self.nodes.not_reachable.remove(&self.id);
                 self.nodes.quarantined.insert(self.id);
                 node.logs_mut().quarantine();
             }
             PolicyReport::LiftQuarantine => {
-                self.nodes.available.insert(self.id);
+                if node.address().is_some() {
+                    self.nodes.available.insert(self.id);
+                } else {
+                    self.nodes.not_reachable.insert(self.id);
+                }
                 self.nodes.quarantined.remove(&self.id);
                 node.logs_mut().lift_quarantine();
             }
