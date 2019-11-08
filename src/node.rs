@@ -178,6 +178,12 @@ impl Node {
     }
 }
 
+impl Default for NodeProfileBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
