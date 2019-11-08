@@ -111,10 +111,11 @@ impl<'a> OccupiedEntry<'a> {
                     if self.nodes.available.remove(&self.id) {
                         self.nodes.not_reachable.insert(self.id);
                     }
-                } else if !was_reachable && now_reachable {
-                    if self.nodes.not_reachable.remove(&self.id) {
-                        self.nodes.available.insert(self.id);
-                    }
+                } else if !was_reachable
+                    && now_reachable
+                    && self.nodes.not_reachable.remove(&self.id)
+                {
+                    self.nodes.available.insert(self.id);
                 }
             }
             PolicyReport::Forget => {
