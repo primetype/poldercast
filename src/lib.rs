@@ -3,6 +3,7 @@
 extern crate quickcheck_macros;
 
 mod address;
+pub mod custom_layers;
 mod gossip;
 mod id;
 mod layer;
