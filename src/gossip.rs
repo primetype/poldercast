@@ -40,12 +40,17 @@ impl GossipsBuilder {
 }
 
 impl Gossips {
-    pub fn into_iter(self) -> impl Iterator<Item = NodeProfile> {
-        self.0.into_iter()
-    }
-
     pub fn inner(self) -> Vec<NodeProfile> {
         self.0
+    }
+}
+
+impl IntoIterator for Gossips {
+    type Item = NodeProfile;
+    type IntoIter = <Vec<Self::Item> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
