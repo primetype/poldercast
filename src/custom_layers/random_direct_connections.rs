@@ -58,7 +58,7 @@ impl Layer for RandomDirectConnections {
     fn populate(&mut self, _identity: &NodeProfile, all_nodes: &Nodes) {
         self.populate_random(
             rand::thread_rng(),
-            all_nodes.available_nodes(),
+            all_nodes.unreachable_nodes(),
             self.max_view_length,
         )
     }
