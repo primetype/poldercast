@@ -228,7 +228,7 @@ impl Rings {
 
         let known_nodes = all_nodes.available_nodes();
         let known_nodes = known_nodes
-            .into_iter()
+            .iter()
             .filter_map(|id| all_nodes.get(id).map(|v| (*id, v)))
             .filter(|(_, node)| node.profile().address().is_some())
             .collect();

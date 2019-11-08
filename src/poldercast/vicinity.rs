@@ -26,7 +26,7 @@ impl Layer for Vicinity {
             identity,
             all_nodes
                 .available_nodes()
-                .into_iter()
+                .iter()
                 .filter(|id| *id != identity.id())
                 .filter_map(|id| all_nodes.get(id))
                 .collect(),
@@ -47,7 +47,7 @@ impl Layer for Vicinity {
                 .profile(),
             all_nodes
                 .available_nodes()
-                .into_iter()
+                .iter()
                 .filter(|id| *id != gossips_builder.recipient())
                 .filter_map(|id| all_nodes.get(id))
                 .collect(),
