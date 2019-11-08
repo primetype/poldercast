@@ -32,7 +32,7 @@ impl Cyclon {
 
 impl Default for Cyclon {
     fn default() -> Self {
-        Cyclon(Vec::with_capacity(CYCLON_MAX_VIEW_LENGTH))
+        Self::with_capacity(CYCLON_MAX_VIEW_LENGTH)
     }
 }
 
