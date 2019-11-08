@@ -115,7 +115,7 @@ impl Topology {
             with.logs_mut().gossiping();
         }
 
-        self.update_known_nodes(with.clone(), gossips);
+        self.update_known_nodes(with, gossips);
 
         let mut gossips_builder = GossipsBuilder::new(with);
 
