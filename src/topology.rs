@@ -100,6 +100,7 @@ impl Topology {
     /// reset the layers, allowing an update of the internal state
     ///
     pub fn force_reset_layers(&mut self) {
+        self.nodes.reset(&mut self.policy);
         self.reset_layers()
     }
 

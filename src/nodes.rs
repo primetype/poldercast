@@ -68,6 +68,53 @@ impl Nodes {
         }
         self.all.insert(id, node.clone())
     }
+
+    pub(crate) fn reset<P>(&mut self, policy: &mut P)
+    where
+        P: Policy,
+    {
+        let mut available = std::mem::replace(&mut self.available, Default::default());
+        let mut not_reachable = std::mem::replace(&mut self.not_reachable, Default::default());
+        let mut quarantined = std::mem::replace(&mut self.quarantined, Default::default());
+
+        self.all.retain(|k, node| {
+            let report = policy.check(node);
+
+            match report {
+                PolicyReport::None => true,
+                PolicyReport::Forget => {
+                    available.remove(k);
+                    not_reachable.remove(k);
+                    quarantined.remove(k);
+
+                    false
+                }
+                PolicyReport::Quarantine => {
+                    available.remove(k);
+                    not_reachable.remove(k);
+                    quarantined.insert(*k);
+                    node.logs_mut().quarantine();
+
+                    true
+                }
+                PolicyReport::LiftQuarantine => {
+                    if node.address().is_some() {
+                        available.insert(*k);
+                    } else {
+                        not_reachable.insert(*k);
+                    }
+                    quarantined.remove(k);
+                    node.logs_mut().lift_quarantine();
+
+                    false
+                }
+            }
+        });
+
+        std::mem::replace(&mut self.available, available);
+        std::mem::replace(&mut self.not_reachable, not_reachable);
+        std::mem::replace(&mut self.quarantined, quarantined);
+    }
 }
 
 impl<'a> VacantEntry<'a> {
