@@ -97,6 +97,19 @@ impl Topology {
         gossips_builder.build(self.profile.clone(), &self.nodes)
     }
 
+    /// reset the layers, allowing an update of the internal state
+    ///
+    pub fn force_reset_layers(&mut self) {
+        self.reset_layers()
+    }
+
+    fn reset_layers(&mut self) {
+        for layer in self.layers.iter_mut() {
+            layer.reset();
+            layer.populate(&self.profile, &self.nodes);
+        }
+    }
+
     pub fn accept_gossips(&mut self, from: Id, gossips: Gossips) {
         if let Some(from) = self.nodes.get_mut(&from) {
             from.logs_mut().gossiping();
@@ -104,10 +117,7 @@ impl Topology {
 
         self.update_known_nodes(from, gossips);
 
-        for layer in self.layers.iter_mut() {
-            layer.reset();
-            layer.populate(&self.profile, &self.nodes);
-        }
+        self.reset_layers();
     }
 
     pub fn exchange_gossips(&mut self, with: Id, gossips: Gossips) -> Gossips {
