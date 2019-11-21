@@ -1,3 +1,19 @@
+/**
+# Overview
+
+Poldercast is a multilayer based topology builder. It helps interconnect nodes
+in a peer to peer decentralized way. This _crate_ does not do the connection part.
+It only provides a way to construct the topology and how to communicate between
+nodes.
+
+This `crate` has been implemented based on the work Vinay Setty, Maarten van Steen,
+Roman Vitenberg and Spyros Voulgaris: [PolderCast: Fast, Robust and Scalable
+Architecture for P2P Topic-based Pub/Sub](https://hal.inria.fr/hal-01555561).
+However there are some slight differences in order to adapt the protocol based on
+the needs.
+
+*/
+
 #[cfg(test)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
