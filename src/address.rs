@@ -4,6 +4,7 @@ use std::{
     cmp::{Ord, Ordering},
     fmt,
 };
+use thiserror::Error;
 
 /// the address of any given nodes
 ///
@@ -78,11 +79,30 @@ impl From<Address> for Multiaddr {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum FromStrAddressError {
+    #[error("Invalid address format: {source}")]
+    Multiaddr {
+        #[from]
+        #[source]
+        source: multiaddr::Error,
+    },
+
+    #[error("Invalid address format, rejecting non ip4 or ip6")]
+    RejectingNonIp4OrIp6thread,
+}
+
 impl std::str::FromStr for Address {
-    type Err = <Multiaddr as std::str::FromStr>::Err;
+    type Err = FromStrAddressError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.parse().map(Address)
+        let addr = s.parse().map(Address)?;
+
+        if let Some(_) = addr.to_socketaddr() {
+            Ok(addr)
+        } else {
+            Err(FromStrAddressError::RejectingNonIp4OrIp6thread)
+        }
     }
 }
 
@@ -138,9 +158,15 @@ impl<'de> Deserialize<'de> for Address {
             where
                 E: de::Error,
             {
-                match s.parse::<multiaddr::Multiaddr>() {
-                    Ok(address) => Ok(Address::from(address)),
-                    Err(_err) => Err(de::Error::invalid_value(Unexpected::Str(s), &self)),
+                let addr = match s.parse::<multiaddr::Multiaddr>() {
+                    Ok(address) => Address::from(address),
+                    Err(_err) => return Err(de::Error::invalid_value(Unexpected::Str(s), &self)),
+                };
+
+                if let Some(_) = addr.to_socketaddr() {
+                    Ok(addr)
+                } else {
+                    Err(de::Error::invalid_value(Unexpected::Str(s), &self))
                 }
             }
             fn visit_bytes<E>(self, s: &[u8]) -> Result<Self::Value, E>
@@ -173,6 +199,41 @@ mod test {
             let port: u16 = Arbitrary::arbitrary(g);
             let address = format!("/ip4/{}.{}.{}.{}/tcp/{}", ip.0, ip.1, ip.2, ip.3, port);
             address.parse().unwrap()
+        }
+    }
+
+    #[test]
+    fn reject_non_ip4_ip6_from_str() {
+        const INVALID_STR: &str = "/dns4/example.com/tcp/2901";
+
+        let parsed: Result<Address, _> = INVALID_STR.parse();
+
+        if let Err(err) = parsed {
+            assert_eq!(
+                err.to_string(),
+                "Invalid address format, rejecting non ip4 or ip6"
+            )
+        } else {
+            panic!("Expecting {:?} to fail parsing FromStr", INVALID_STR)
+        }
+    }
+
+    #[test]
+    fn reject_non_ip4_ip6_json() {
+        const INVALID_STR: &str = "\"/dns6/example.com/tcp/2901\"";
+
+        let parsed: Result<Address, _> = serde_json::from_str(INVALID_STR);
+
+        if let Err(err) = parsed {
+            assert_eq!(
+                err.to_string(),
+                "invalid value: string \"/dns6/example.com/tcp/2901\", expected expected a multi format address (e.g.: `/ip4/127.0.0.1/tcp/8081\') at line 1 column 28"
+            )
+        } else {
+            panic!(
+                "Expecting {:?} to fail parsing from serde_json",
+                INVALID_STR
+            )
         }
     }
 
