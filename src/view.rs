@@ -1,6 +1,8 @@
 use crate::{Id, Node, NodeInfo, Nodes, Topic};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Selection {
     Topic { topic: Topic },
     Any,

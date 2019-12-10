@@ -34,7 +34,7 @@ pub struct NodeProfileBuilder {
 /// with the node.
 ///
 /// [`NodeProfile`]: ./struct.NodeProfile.html
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node {
     profile: NodeProfile,
 

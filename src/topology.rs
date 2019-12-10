@@ -145,4 +145,12 @@ impl Topology {
     {
         self.nodes.entry(id).and_modify(&mut self.policy, update)
     }
+
+    /// function to access the nodes data structure. From there it is possible
+    /// to query the available nodes, the non-publicly-reachable nodes and the
+    /// quarantined nodes.
+    ///
+    pub fn nodes(&self) -> &Nodes {
+        &self.nodes
+    }
 }

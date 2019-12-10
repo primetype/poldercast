@@ -1,7 +1,8 @@
 use crate::Topic;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, time::SystemTime};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Logs {
     creation_time: SystemTime,
     last_update: SystemTime,

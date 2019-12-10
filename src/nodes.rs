@@ -47,6 +47,42 @@ impl Nodes {
         &self.available
     }
 
+    /// list all available nodes, these are nodes that are not quarantined
+    /// and that are publicly reachable.
+    ///
+    /// This operation is costly and should not be used often or it will slow
+    /// down the other operation of the `Nodes`
+    pub fn all_available_nodes(&self) -> Vec<&Node> {
+        self.available_nodes()
+            .iter()
+            .filter_map(|id| self.all.get(id))
+            .collect()
+    }
+
+    /// list all quarantined nodes, these are nodes that are not in used in the
+    /// p2p topology and but may become available or be removed soon.
+    ///
+    /// This operation is costly and should not be used often or it will slow
+    /// down the other operation of the `Nodes`
+    pub fn all_quarantined_nodes(&self) -> Vec<&Node> {
+        self.quarantined_nodes()
+            .iter()
+            .filter_map(|id| self.all.get(id))
+            .collect()
+    }
+
+    /// list all non publicly reachable nodes. These are nodes that are directly
+    /// connected to our nodes and that are not gossiped about.
+    ///
+    /// This operation is costly and should not be used often or it will slow
+    /// down the other operation of the `Nodes`
+    pub fn all_unreachable_nodes(&self) -> Vec<&Node> {
+        self.unreachable_nodes()
+            .iter()
+            .filter_map(|id| self.all.get(id))
+            .collect()
+    }
+
     /// access nodes that are connected to us but not necessarily reachable
     ///
     /// This can be nodes that are behind a firewall or a NAT and that can't do

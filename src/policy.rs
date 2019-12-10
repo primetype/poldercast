@@ -1,4 +1,5 @@
 use crate::Node;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
     time::{Duration, SystemTime},
@@ -9,21 +10,21 @@ const DEFAULT_QUARANTINE_DURATION: Duration = Duration::from_secs(1800);
 
 pub struct DefaultPolicy;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Strike {
     when: SystemTime,
 
     reason: StrikeReason,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StrikeReason {
     CannotConnect,
     InvalidPublicId,
     InvalidData,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Record {
     strikes: VecDeque<Strike>,
 }
