@@ -1,6 +1,6 @@
 [package]
 name = "poldercast"
-version = "0.10.1"
+version = "0.11.0-dev"
 license = "MIT OR Apache-2.0"
 authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>"]
 edition = "2018"
@@ -14,13 +14,13 @@ Peer to Peer topology management
 
 [dependencies]
 multiaddr = "0.3"
-rand = "0.6"
+rand = "0.7"
 hex = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 
 [dev-dependencies]
-rand_chacha = "0.1"
+rand_chacha = "0.2"
 quickcheck = "0.8"
 quickcheck_macros = "0.8"
 serde_json = "1.0"
