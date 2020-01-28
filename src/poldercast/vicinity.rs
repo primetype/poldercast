@@ -1,4 +1,5 @@
 use crate::{GossipsBuilder, Id, Layer, Node, NodeProfile, Nodes, ViewBuilder};
+use rayon::prelude::*;
 
 const VICINITY_MAX_VIEW_SIZE: usize = 20;
 const VICINITY_MAX_GOSSIP_LENGTH: usize = 10;
@@ -75,7 +76,8 @@ impl Vicinity {
         mut profiles: Vec<&Node>,
         max: usize,
     ) -> Vec<Id> {
-        profiles.sort_by(|left, right| {
+        // Use unstable parallel sort as total number of nodes can be quite large.
+        profiles.par_sort_unstable_by(|left, right| {
             to.proximity(left.profile())
                 .cmp(&to.proximity(right.profile()))
         });
