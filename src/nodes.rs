@@ -142,7 +142,7 @@ impl Nodes {
                     quarantined.remove(k);
                     node.logs_mut().lift_quarantine();
 
-                    false
+                    true
                 }
             }
         });
