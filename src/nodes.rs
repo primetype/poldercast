@@ -1,5 +1,6 @@
 use crate::{Id, Node, Policy, PolicyReport};
 use std::collections::{BTreeSet, HashMap, HashSet};
+use serde::{Serialize, Deserialize};
 
 #[derive(Default, Debug)]
 pub struct Nodes {
@@ -9,7 +10,7 @@ pub struct Nodes {
     available: BTreeSet<Id>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Count {
     pub all_count: usize,
     pub quarantined_count: usize,
