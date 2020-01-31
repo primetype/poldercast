@@ -40,6 +40,7 @@ pub use self::{
     logs::Logs,
     node::{Node, NodeInfo, NodeProfile, NodeProfileBuilder},
     nodes::Nodes,
+    nodes::Count,
     policy::{DefaultPolicy, Policy, PolicyReport, Record, Strike, StrikeReason},
     topic::{InterestLevel, Proximity, Subscription, Subscriptions, Topic},
     topology::Topology,
