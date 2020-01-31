@@ -1,7 +1,7 @@
 use crate::{Id, Node, Policy, PolicyReport};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-#[derive(Clone, Debug)]
+#[derive(Default, Debug)]
 pub struct Nodes {
     all: HashMap<Id, Node>,
     quarantined: HashSet<Id>,
