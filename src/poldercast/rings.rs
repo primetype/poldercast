@@ -3,6 +3,7 @@ use crate::{
     Topic, ViewBuilder,
 };
 use std::collections::BTreeMap;
+use rayon::prelude::*;
 
 /// the number of neighbor for a given subscribed topic of the given node.
 ///
@@ -258,7 +259,7 @@ impl Rings {
         // candidates are the one that are common topics.
         let candidates: BTreeMap<Id, &Node> = all_nodes
             .available_nodes()
-            .iter()
+            .par_iter()
             .filter_map(|id| all_nodes.get(id))
             .filter(|node| node.profile().address().is_some())
             .filter(|v| {

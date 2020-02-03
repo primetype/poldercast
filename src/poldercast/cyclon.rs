@@ -24,7 +24,6 @@ impl Cyclon {
     {
         self.0 = known_nodes
             .iter()
-            .map(|v| v)
             .cloned()
             .choose_multiple(&mut rng, capacity);
     }
