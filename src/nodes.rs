@@ -1,14 +1,21 @@
 use crate::{Id, Node, Policy, PolicyReport};
 use std::collections::{BTreeSet, HashMap, HashSet};
+use serde::{Serialize, Deserialize};
 
 #[derive(Default, Debug)]
 pub struct Nodes {
     all: HashMap<Id, Node>,
-
     quarantined: HashSet<Id>,
-
     not_reachable: BTreeSet<Id>,
     available: BTreeSet<Id>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Count {
+    pub all_count: usize,
+    pub quarantined_count: usize,
+    pub not_reachable_count: usize,
+    pub available_count: usize,
 }
 
 pub enum Entry<'a> {
@@ -93,6 +100,16 @@ impl Nodes {
 
     pub fn quarantined_nodes(&self) -> &HashSet<Id> {
         &self.quarantined
+    }
+
+    /// access a count of all nodes
+    pub fn node_count(&self) -> Count {
+        Count {
+            all_count: self.all.len(),
+            available_count: self.available.len(),
+            not_reachable_count: self.not_reachable.len(),
+            quarantined_count: self.quarantined.len()
+        }
     }
 
     fn insert(&mut self, node: Node) -> Option<Node> {
