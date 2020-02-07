@@ -142,6 +142,19 @@ impl Nodes {
                 address
             }
         };
+
+        // prevent entering an element that will trigger removing
+        // the least recently used entry (this is something missing
+        // from the `lru` crate that would be improved: detecting when
+        // a `put` removed an entry, though it can be simulated here
+        // with the following checks):
+        while self.all.len() >= self.all.cap() {
+            if let Some((k, _)) = self.all.pop_lru() {
+                self.available.remove(&k);
+                self.quarantined.remove(&k);
+                self.not_reachable.remove(&k);
+            }
+        }
         self.all.put(address, node)
     }
 
