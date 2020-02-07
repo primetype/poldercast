@@ -12,6 +12,8 @@ const VICINITY_MAX_GOSSIP_LENGTH: usize = 10;
 #[derive(Clone, Debug)]
 pub struct Vicinity {
     view: Vec<Address>,
+    max_view_size: usize,
+    max_gossip_length: usize,
 }
 impl Layer for Vicinity {
     fn alias(&self) -> &'static str {
@@ -31,7 +33,7 @@ impl Layer for Vicinity {
                 .filter(|id| Some(*id) != identity.address())
                 .filter_map(|id| all_nodes.peek(id))
                 .collect(),
-            VICINITY_MAX_VIEW_SIZE,
+            self.max_view_size,
         )
     }
 
@@ -52,7 +54,7 @@ impl Layer for Vicinity {
                 .filter(|id| *id != gossips_builder.recipient())
                 .filter_map(|id| all_nodes.peek(id))
                 .collect(),
-            VICINITY_MAX_GOSSIP_LENGTH,
+            self.max_gossip_length,
         );
         for gossip in gossips {
             gossips_builder.add(gossip);
@@ -68,6 +70,14 @@ impl Layer for Vicinity {
     }
 }
 impl Vicinity {
+    pub fn new(max_view_size: usize, max_gossip_length: usize) -> Self {
+        Self {
+            view: Vec::with_capacity(max_view_size),
+            max_view_size,
+            max_gossip_length,
+        }
+    }
+
     /// select nodes based on the proximity function (see Profile's proximity
     /// member function).
     fn select_closest_nodes(
@@ -94,6 +104,8 @@ impl Default for Vicinity {
     fn default() -> Self {
         Vicinity {
             view: Vec::default(),
+            max_view_size: VICINITY_MAX_VIEW_SIZE,
+            max_gossip_length: VICINITY_MAX_GOSSIP_LENGTH,
         }
     }
 }

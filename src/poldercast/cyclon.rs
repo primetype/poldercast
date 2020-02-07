@@ -11,18 +11,26 @@ const CYCLON_MAX_GOSSIPING_LENGTH: usize = 10;
 /// It also make sure we contact the least contacted node for the next
 /// gossiping round.
 #[derive(Clone, Debug)]
-pub struct Cyclon(Vec<Address>);
+pub struct Cyclon {
+    view: Vec<Address>,
+    max_view_length: usize,
+    max_gossip_length: usize,
+}
 
 impl Cyclon {
-    fn with_capacity(capacity: usize) -> Self {
-        Cyclon(Vec::with_capacity(capacity))
+    pub fn new(max_view_length: usize, max_gossip_length: usize) -> Self {
+        Self {
+            view: Vec::with_capacity(max_view_length),
+            max_view_length,
+            max_gossip_length,
+        }
     }
 
     fn populate_random<R>(&mut self, mut rng: R, known_nodes: &BTreeSet<Address>, capacity: usize)
     where
         R: Rng,
     {
-        self.0 = known_nodes
+        self.view = known_nodes
             .iter()
             .map(|v| v)
             .cloned()
@@ -32,7 +40,7 @@ impl Cyclon {
 
 impl Default for Cyclon {
     fn default() -> Self {
-        Self::with_capacity(CYCLON_MAX_VIEW_LENGTH)
+        Self::new(CYCLON_MAX_VIEW_LENGTH, CYCLON_MAX_GOSSIPING_LENGTH)
     }
 }
 
@@ -42,14 +50,14 @@ impl Layer for Cyclon {
     }
 
     fn reset(&mut self) {
-        self.0.clear()
+        self.view.clear()
     }
 
     fn populate(&mut self, _identity: &NodeProfile, all_nodes: &Nodes) {
         self.populate_random(
             rand::thread_rng(),
             all_nodes.available_nodes(),
-            CYCLON_MAX_VIEW_LENGTH,
+            self.max_view_length,
         )
     }
 
@@ -59,20 +67,20 @@ impl Layer for Cyclon {
         gossips_builder: &mut GossipsBuilder,
         all_nodes: &Nodes,
     ) {
-        let mut cyclon = Cyclon::with_capacity(CYCLON_MAX_GOSSIPING_LENGTH);
+        let mut cyclon = Cyclon::new(self.max_gossip_length, 0);
         cyclon.populate_random(
             rand::thread_rng(),
             all_nodes.available_nodes(),
-            CYCLON_MAX_GOSSIPING_LENGTH,
+            self.max_gossip_length,
         );
 
-        cyclon.0.into_iter().for_each(|node| {
+        cyclon.view.into_iter().for_each(|node| {
             gossips_builder.add(node);
         })
     }
 
     fn view(&mut self, view_builder: &mut ViewBuilder, all_nodes: &mut Nodes) {
-        for id in self.0.iter() {
+        for id in self.view.iter() {
             if let Some(node) = all_nodes.peek_mut(id) {
                 view_builder.add(node)
             }
