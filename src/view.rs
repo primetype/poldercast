@@ -43,7 +43,7 @@ impl ViewBuilder {
             node.logs_mut().use_of(*topic);
         }
 
-        self.view.insert(node.address().as_ref().clone());
+        self.view.insert(node.address().clone());
     }
 
     pub(crate) fn build(self, nodes: &mut Nodes) -> Vec<NodeInfo> {

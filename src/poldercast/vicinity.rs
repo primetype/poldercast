@@ -95,7 +95,7 @@ impl Vicinity {
         profiles
             .into_iter()
             .take(max)
-            .map(|v| v.address().as_ref().clone())
+            .map(|v| v.address().clone())
             .collect()
     }
 }

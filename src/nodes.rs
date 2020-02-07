@@ -132,7 +132,7 @@ impl Nodes {
 
     fn insert(&mut self, node: Node) -> Option<Node> {
         use crate::node::NodeAddress::*;
-        let address = match node.address() {
+        let address = match node.node_address() {
             Discoverable(address) => {
                 self.available.insert(address.clone());
                 address
@@ -174,7 +174,7 @@ impl Nodes {
                     node.logs_mut().quarantine();
                 }
                 PolicyReport::LiftQuarantine => {
-                    if node.address().is_discoverable() {
+                    if node.node_address().is_discoverable() {
                         available.insert(k.clone());
                     } else {
                         not_reachable.insert(k.clone());
@@ -197,7 +197,7 @@ impl<'a> VacantEntry<'a> {
     }
 
     pub(crate) fn insert(&mut self, default: Node) {
-        debug_assert_eq!(self.key(), default.address().as_ref());
+        debug_assert_eq!(self.key(), default.node_address().as_ref());
         assert!(self.nodes.insert(default).is_none());
     }
 
@@ -221,13 +221,13 @@ impl<'a> OccupiedEntry<'a> {
         P: Policy,
     {
         let node = self.nodes.all.get_mut(&self.id).unwrap();
-        let was_reachable = node.address().is_discoverable();
+        let was_reachable = node.node_address().is_discoverable();
         f(node);
         let report = policy.check(node);
 
         match report {
             PolicyReport::None => {
-                let now_reachable = node.address().is_discoverable();
+                let now_reachable = node.node_address().is_discoverable();
                 if was_reachable && !now_reachable {
                     if self.nodes.available.remove(&self.id) {
                         self.nodes.not_reachable.insert(self.id.clone());
@@ -252,7 +252,7 @@ impl<'a> OccupiedEntry<'a> {
                 node.logs_mut().quarantine();
             }
             PolicyReport::LiftQuarantine => {
-                if node.address().is_discoverable() {
+                if node.node_address().is_discoverable() {
                     self.nodes.available.insert(self.id.clone());
                 } else {
                     self.nodes.not_reachable.insert(self.id.clone());

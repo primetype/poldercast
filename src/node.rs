@@ -154,7 +154,11 @@ impl Node {
         &self.profile().info()
     }
 
-    pub fn address(&self) -> NodeAddress {
+    pub fn address(&self) -> &Address {
+        self.profile.address().unwrap_or_else(|| &self.address)
+    }
+
+    pub fn node_address(&self) -> NodeAddress {
         self.profile()
             .address()
             .cloned()

@@ -230,7 +230,7 @@ impl Rings {
             let known_nodes = all_nodes.available_nodes();
             let known_nodes = known_nodes
                 .iter()
-                .filter_map(|id| all_nodes.peek(id).map(|v| (id.clone(), v)))
+                .filter_map(|id| all_nodes.peek(id).map(|v| (id, v)))
                 .filter(|(_, node)| node.profile().address().is_some())
                 .collect();
 
@@ -258,7 +258,7 @@ impl Rings {
             .collect();
 
         // candidates are the one that are common topics.
-        let candidates: BTreeMap<Address, &Node> = all_nodes
+        let candidates: BTreeMap<&Address, &Node> = all_nodes
             .available_nodes()
             .iter()
             .filter_map(|id| all_nodes.peek(id))
@@ -270,7 +270,7 @@ impl Rings {
                     .next()
                     .is_some()
             })
-            .map(|v| (v.address().as_ref().clone(), v))
+            .map(|v| (v.address(), v))
             .collect();
 
         for topic in common_topics.iter() {
@@ -286,7 +286,7 @@ impl Rings {
 fn select_best_nodes_for_topic(
     other_id: &Address,
     subscription: Subscription,
-    candidates: &BTreeMap<Address, &Node>,
+    candidates: &BTreeMap<&Address, &Node>,
 ) -> TopicView {
     use std::ops::Bound::{Excluded, Unbounded};
     let mut view = TopicView::default();
@@ -294,14 +294,17 @@ fn select_best_nodes_for_topic(
     {
         // these are the predecessor
         let mut predecessor = view.predecessors_mut();
-        for (candidate_id, candidate) in candidates.range((Unbounded, Excluded(other_id))).rev() {
+        for (candidate_id, candidate) in candidates
+            .range::<&Address, _>((Unbounded, Excluded(other_id)))
+            .rev()
+        {
             if candidate
                 .profile()
                 .subscriptions()
                 .contains(subscription.topic())
             {
                 if let Some(p) = predecessor.next() {
-                    *p = Slot::Taken(candidate_id.clone());
+                    *p = Slot::Taken(Address::clone(candidate_id));
                 } else {
                     // we can stop as soon as we have all the necessary element
                     break;
@@ -313,14 +316,17 @@ fn select_best_nodes_for_topic(
     {
         // these are the successor of the topic
         let mut successor = view.successors_mut();
-        for (candidate_id, candidate) in candidates.range((Excluded(other_id), Unbounded)).rev() {
+        for (candidate_id, candidate) in candidates
+            .range::<&Address, _>((Excluded(other_id), Unbounded))
+            .rev()
+        {
             if candidate
                 .profile()
                 .subscriptions()
                 .contains(subscription.topic())
             {
                 if let Some(p) = successor.next() {
-                    *p = Slot::Taken(candidate_id.clone());
+                    *p = Slot::Taken(Address::clone(candidate_id));
                 } else {
                     // we can stop as soon as we have all the necessary element
                     break;
