@@ -1,14 +1,14 @@
 use crate::{Address, Node, Policy, PolicyReport};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct Nodes {
     all: LruCache<Address, Node>,
     quarantined: HashSet<Address>,
-    not_reachable: BTreeSet<Address>,
-    available: BTreeSet<Address>,
+    not_reachable: HashSet<Address>,
+    available: HashSet<Address>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -39,8 +39,8 @@ impl Nodes {
         Self {
             all: LruCache::new(cap),
             quarantined: HashSet::default(),
-            not_reachable: BTreeSet::default(),
-            available: BTreeSet::default(),
+            not_reachable: HashSet::default(),
+            available: HashSet::default(),
         }
     }
 
@@ -68,7 +68,7 @@ impl Nodes {
         }
     }
 
-    pub fn available_nodes(&self) -> &BTreeSet<Address> {
+    pub fn available_nodes(&self) -> &HashSet<Address> {
         &self.available
     }
 
@@ -112,7 +112,7 @@ impl Nodes {
     ///
     /// This can be nodes that are behind a firewall or a NAT and that can't do
     /// hole punching to allow other nodes to connect to them.
-    pub fn unreachable_nodes(&self) -> &BTreeSet<Address> {
+    pub fn unreachable_nodes(&self) -> &HashSet<Address> {
         &self.not_reachable
     }
 

@@ -1,6 +1,6 @@
 use crate::{Address, GossipsBuilder, Layer, NodeProfile, Nodes, ViewBuilder};
 use rand::{seq::IteratorRandom, Rng};
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 
 const DEFAULT_MAX_VIEW_LENGTH: usize = 20;
 
@@ -25,7 +25,7 @@ impl RandomDirectConnections {
         }
     }
 
-    fn populate_random<R>(&mut self, mut rng: R, known_nodes: &BTreeSet<Address>, capacity: usize)
+    fn populate_random<R>(&mut self, mut rng: R, known_nodes: &HashSet<Address>, capacity: usize)
     where
         R: Rng,
     {
