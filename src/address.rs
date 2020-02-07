@@ -3,6 +3,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     cmp::{Ord, Ordering},
     fmt,
+    net::SocketAddr,
 };
 use thiserror::Error;
 
@@ -31,7 +32,11 @@ impl Address {
         addr.to_multiaddr().map(Address)
     }
 
-    pub fn to_socketaddr(&self) -> Option<std::net::SocketAddr> {
+    #[deprecated(
+        since = "0.11.3",
+        note = "Use the `multi_address` function instead, this function will be removed"
+    )]
+    pub fn to_socketaddr(&self) -> Option<SocketAddr> {
         let components = self.0.iter().collect::<Vec<_>>();
 
         match components.get(0)? {
@@ -55,6 +60,10 @@ impl Address {
             }
             _ => None,
         }
+    }
+
+    pub fn multi_address(&self) -> &Multiaddr {
+        &self.0
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -98,10 +107,10 @@ impl std::str::FromStr for Address {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let addr = s.parse().map(Address)?;
 
-        if let Some(_) = addr.to_socketaddr() {
-            Ok(addr)
-        } else {
-            Err(FromStrAddressError::RejectingNonIp4OrIp6thread)
+        match addr.0.iter().next() {
+            Some(multiaddr::AddrComponent::IP4(_)) => Ok(addr),
+            Some(multiaddr::AddrComponent::IP6(_)) => Ok(addr),
+            _ => Err(FromStrAddressError::RejectingNonIp4OrIp6thread),
         }
     }
 }
@@ -158,16 +167,8 @@ impl<'de> Deserialize<'de> for Address {
             where
                 E: de::Error,
             {
-                let addr = match s.parse::<multiaddr::Multiaddr>() {
-                    Ok(address) => Address::from(address),
-                    Err(_err) => return Err(de::Error::invalid_value(Unexpected::Str(s), &self)),
-                };
-
-                if let Some(_) = addr.to_socketaddr() {
-                    Ok(addr)
-                } else {
-                    Err(de::Error::invalid_value(Unexpected::Str(s), &self))
-                }
+                s.parse::<Address>()
+                    .map_err(|_err| de::Error::invalid_value(Unexpected::Str(s), &self))
             }
             fn visit_bytes<E>(self, s: &[u8]) -> Result<Self::Value, E>
             where

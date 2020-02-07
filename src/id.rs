@@ -1,3 +1,6 @@
+// lift the warnings from within this internal module
+#![allow(deprecated)]
+
 use rand::RngCore;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{fmt, str::FromStr};
@@ -13,6 +16,7 @@ use std::{fmt, str::FromStr};
 /// and to occupy a circular value space.
 ///
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[deprecated(since = "0.11.3", note = "ID is no longer used")]
 pub struct Id([u8; ID_LEN]);
 
 const ID_LEN: usize = 24;
