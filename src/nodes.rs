@@ -1,6 +1,6 @@
 use crate::{Id, Node, Policy, PolicyReport};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap, HashSet};
-use serde::{Serialize, Deserialize};
 
 #[derive(Default, Debug)]
 pub struct Nodes {
@@ -108,7 +108,7 @@ impl Nodes {
             all_count: self.all.len(),
             available_count: self.available.len(),
             not_reachable_count: self.not_reachable.len(),
-            quarantined_count: self.quarantined.len()
+            quarantined_count: self.quarantined.len(),
         }
     }
 
