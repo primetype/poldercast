@@ -119,7 +119,7 @@ impl Nodes {
         } else {
             self.not_reachable.insert(id);
         }
-        self.all.insert(id, node.clone())
+        self.all.insert(id, node)
     }
 
     pub(crate) fn reset<P>(&mut self, policy: &mut P)
