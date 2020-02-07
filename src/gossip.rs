@@ -1,29 +1,29 @@
-use crate::{Id, NodeProfile, Nodes};
+use crate::{Address, NodeProfile, Nodes};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub struct GossipsBuilder {
-    recipient: Id,
+    recipient: Address,
 
-    gossips: HashSet<Id>,
+    gossips: HashSet<Address>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Gossips(Vec<NodeProfile>);
 
 impl GossipsBuilder {
-    pub(crate) fn new(recipient: Id) -> Self {
+    pub(crate) fn new(recipient: Address) -> Self {
         Self {
             recipient,
             gossips: HashSet::default(),
         }
     }
 
-    pub fn recipient(&self) -> &Id {
+    pub fn recipient(&self) -> &Address {
         &self.recipient
     }
 
-    pub fn add(&mut self, node: Id) -> bool {
+    pub fn add(&mut self, node: Address) -> bool {
         self.gossips.insert(node)
     }
 

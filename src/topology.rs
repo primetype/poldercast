@@ -1,7 +1,7 @@
 use crate::nodes::Entry;
 use crate::{
-    DefaultPolicy, Gossips, GossipsBuilder, Id, Layer, Node, NodeInfo, NodeProfile, Nodes, Policy,
-    PolicyReport, Selection, ViewBuilder,
+    Address, DefaultPolicy, Gossips, GossipsBuilder, Layer, Node, NodeInfo, NodeProfile, Nodes,
+    Policy, PolicyReport, Selection, ViewBuilder,
 };
 
 pub struct Topology {
@@ -43,7 +43,7 @@ impl Topology {
         self.policy = Box::new(policy);
     }
 
-    pub fn view(&mut self, from: Option<Id>, selection: Selection) -> Vec<NodeInfo> {
+    pub fn view(&mut self, from: Option<Address>, selection: Selection) -> Vec<NodeInfo> {
         let mut view_builder = ViewBuilder::new(selection);
 
         if let Some(from) = from {
@@ -57,34 +57,28 @@ impl Topology {
         view_builder.build(&self.nodes)
     }
 
-    fn update_known_nodes(&mut self, _from: Id, gossips: Gossips) {
+    fn update_known_nodes(&mut self, from: Address, gossips: Gossips) {
         for gossip in gossips.into_iter() {
-            if gossip.id() == self.profile.id() {
+            if gossip.address() == self.profile.address() {
                 // ignore ourselves
                 continue;
             }
 
-            if let (Some(my_address), Some(other_address)) =
-                (self.profile().address(), gossip.address())
-            {
-                if my_address == other_address {
-                    // address theft or we have a new Id since then
-                    continue;
-                }
-            }
+            // can only happen once by the remote
+            let address = gossip.address().cloned().unwrap_or_else(|| from.clone());
 
-            match self.nodes.entry(*gossip.id()) {
+            match self.nodes.entry(address.clone()) {
                 Entry::Occupied(mut occupied) => {
                     occupied.modify(&mut self.policy, |node| node.update_gossip(gossip));
                 }
                 Entry::Vacant(mut vacant) => {
-                    vacant.insert(Node::new(gossip));
+                    vacant.insert(Node::new(address, gossip));
                 }
             }
         }
     }
 
-    pub fn initiate_gossips(&mut self, with: Id) -> Gossips {
+    pub fn initiate_gossips(&mut self, with: Address) -> Gossips {
         if let Some(with) = self.nodes.get_mut(&with) {
             with.logs_mut().gossiping();
         }
@@ -111,7 +105,7 @@ impl Topology {
         }
     }
 
-    pub fn accept_gossips(&mut self, from: Id, gossips: Gossips) {
+    pub fn accept_gossips(&mut self, from: Address, gossips: Gossips) {
         if let Some(from) = self.nodes.get_mut(&from) {
             from.logs_mut().gossiping();
         }
@@ -121,12 +115,12 @@ impl Topology {
         self.reset_layers();
     }
 
-    pub fn exchange_gossips(&mut self, with: Id, gossips: Gossips) -> Gossips {
+    pub fn exchange_gossips(&mut self, with: Address, gossips: Gossips) -> Gossips {
         if let Some(with) = self.nodes.get_mut(&with) {
             with.logs_mut().gossiping();
         }
 
-        self.update_known_nodes(with, gossips);
+        self.update_known_nodes(with.clone(), gossips);
 
         let mut gossips_builder = GossipsBuilder::new(with);
 
@@ -139,7 +133,7 @@ impl Topology {
         gossips_builder.build(self.profile.clone(), &self.nodes)
     }
 
-    pub fn update_node<F>(&mut self, id: Id, update: F) -> Option<PolicyReport>
+    pub fn update_node<F>(&mut self, id: Address, update: F) -> Option<PolicyReport>
     where
         F: FnOnce(&mut Node),
     {

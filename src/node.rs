@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crate::{Address, Id, Logs, Proximity, Record, Subscription, Subscriptions};
 use serde::{Deserialize, Serialize};
 
@@ -38,15 +40,14 @@ pub struct NodeProfileBuilder {
 pub struct Node {
     profile: NodeProfile,
 
+    address: Address,
+
     logs: Logs,
 
     record: Record,
 }
 
 impl NodeInfo {
-    pub fn id(&self) -> &Id {
-        &self.id
-    }
     pub fn address(&self) -> Option<&Address> {
         self.address.as_ref()
     }
@@ -59,11 +60,6 @@ impl NodeProfileBuilder {
             address: None,
             subscriptions: Subscriptions::default(),
         }
-    }
-
-    pub fn id(&mut self, id: Id) -> &mut Self {
-        self.id = id;
-        self
     }
 
     pub fn address(&mut self, address: Address) -> &mut Self {
@@ -90,10 +86,6 @@ impl NodeProfileBuilder {
 impl NodeProfile {
     pub(crate) fn info(&self) -> &NodeInfo {
         &self.info
-    }
-
-    pub fn id(&self) -> &Id {
-        &self.info.id
     }
 
     pub fn address(&self) -> Option<&Address> {
@@ -127,10 +119,32 @@ impl NodeProfile {
     }
 }
 
+pub enum NodeAddress {
+    Discoverable(Address),
+    NonDiscoverable(Address),
+}
+
+impl NodeAddress {
+    pub(crate) fn is_discoverable(&self) -> bool {
+        match self {
+            Self::Discoverable(_address) => true,
+            Self::NonDiscoverable(_address) => false,
+        }
+    }
+
+    pub(crate) fn as_ref(&self) -> &Address {
+        match self {
+            Self::Discoverable(address) => address,
+            Self::NonDiscoverable(address) => address,
+        }
+    }
+}
+
 impl Node {
-    pub(crate) fn new(profile: NodeProfile) -> Self {
+    pub(crate) fn new(address: Address, profile: NodeProfile) -> Self {
         Self {
             profile,
+            address,
             logs: Logs::default(),
             record: Record::default(),
         }
@@ -140,12 +154,12 @@ impl Node {
         &self.profile().info()
     }
 
-    pub fn address(&self) -> Option<&Address> {
-        self.profile().address()
-    }
-
-    pub fn id(&self) -> &Id {
-        self.profile().id()
+    pub fn address(&self) -> NodeAddress {
+        self.profile()
+            .address()
+            .cloned()
+            .map(NodeAddress::Discoverable)
+            .unwrap_or_else(|| NodeAddress::NonDiscoverable(self.address.clone()))
     }
 
     pub fn profile(&self) -> &NodeProfile {

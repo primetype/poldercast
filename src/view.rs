@@ -1,4 +1,4 @@
-use crate::{Id, Node, NodeInfo, Nodes, Topic};
+use crate::{Address, Node, NodeInfo, Nodes, Topic};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -9,11 +9,11 @@ pub enum Selection {
 }
 
 pub struct ViewBuilder {
-    event_origin: Option<Id>,
+    event_origin: Option<Address>,
 
     selection: Selection,
 
-    view: HashSet<Id>,
+    view: HashSet<Address>,
 }
 
 impl ViewBuilder {
@@ -25,12 +25,12 @@ impl ViewBuilder {
         }
     }
 
-    pub fn with_origin(&mut self, origin: Id) -> &Self {
+    pub fn with_origin(&mut self, origin: Address) -> &Self {
         self.event_origin = Some(origin);
         self
     }
 
-    pub fn origin(&self) -> Option<&Id> {
+    pub fn origin(&self) -> Option<&Address> {
         self.event_origin.as_ref()
     }
 
@@ -43,7 +43,7 @@ impl ViewBuilder {
             node.logs_mut().use_of(*topic);
         }
 
-        self.view.insert(*node.id());
+        self.view.insert(node.address().as_ref().clone());
     }
 
     pub fn build(self, nodes: &Nodes) -> Vec<NodeInfo> {

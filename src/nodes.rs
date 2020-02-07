@@ -1,14 +1,14 @@
-use crate::{Id, Node, Policy, PolicyReport};
+use crate::{Address, Node, Policy, PolicyReport};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashSet};
 
 #[derive(Debug)]
 pub struct Nodes {
-    all: LruCache<Id, Node>,
-    quarantined: HashSet<Id>,
-    not_reachable: BTreeSet<Id>,
-    available: BTreeSet<Id>,
+    all: LruCache<Address, Node>,
+    quarantined: HashSet<Address>,
+    not_reachable: BTreeSet<Address>,
+    available: BTreeSet<Address>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,11 +26,11 @@ pub enum Entry<'a> {
 
 pub struct VacantEntry<'a> {
     nodes: &'a mut Nodes,
-    id: Id,
+    id: Address,
 }
 
 pub struct OccupiedEntry<'a> {
-    id: Id,
+    id: Address,
     nodes: &'a mut Nodes,
 }
 
@@ -44,15 +44,15 @@ impl Nodes {
         }
     }
 
-    pub(crate) fn get<'a>(&'a self, id: &Id) -> Option<&'a Node> {
+    pub(crate) fn get<'a>(&'a self, id: &Address) -> Option<&'a Node> {
         self.all.peek(id)
     }
 
-    pub(crate) fn get_mut<'a>(&'a mut self, id: &Id) -> Option<&'a mut Node> {
+    pub(crate) fn get_mut<'a>(&'a mut self, id: &Address) -> Option<&'a mut Node> {
         self.all.peek_mut(id)
     }
 
-    pub fn entry(&mut self, public_id: Id) -> Entry<'_> {
+    pub fn entry(&mut self, public_id: Address) -> Entry<'_> {
         if self.all.contains(&public_id) {
             Entry::Occupied(OccupiedEntry::new(self, public_id))
         } else {
@@ -60,7 +60,7 @@ impl Nodes {
         }
     }
 
-    pub fn available_nodes(&self) -> &BTreeSet<Id> {
+    pub fn available_nodes(&self) -> &BTreeSet<Address> {
         &self.available
     }
 
@@ -104,11 +104,11 @@ impl Nodes {
     ///
     /// This can be nodes that are behind a firewall or a NAT and that can't do
     /// hole punching to allow other nodes to connect to them.
-    pub fn unreachable_nodes(&self) -> &BTreeSet<Id> {
+    pub fn unreachable_nodes(&self) -> &BTreeSet<Address> {
         &self.not_reachable
     }
 
-    pub fn quarantined_nodes(&self) -> &HashSet<Id> {
+    pub fn quarantined_nodes(&self) -> &HashSet<Address> {
         &self.quarantined
     }
 
@@ -123,13 +123,18 @@ impl Nodes {
     }
 
     fn insert(&mut self, node: Node) -> Option<Node> {
-        let id = *node.id();
-        if node.address().is_some() {
-            self.available.insert(id);
-        } else {
-            self.not_reachable.insert(id);
-        }
-        self.all.put(id, node)
+        use crate::node::NodeAddress::*;
+        let address = match node.address() {
+            Discoverable(address) => {
+                self.available.insert(address.clone());
+                address
+            }
+            NonDiscoverable(address) => {
+                self.not_reachable.insert(address.clone());
+                address
+            }
+        };
+        self.all.put(address, node)
     }
 
     pub(crate) fn reset<P>(&mut self, policy: &mut P)
@@ -152,19 +157,19 @@ impl Nodes {
                     not_reachable.remove(k);
                     quarantined.remove(k);
 
-                    to_remove.push(*k);
+                    to_remove.push(k.clone());
                 }
                 PolicyReport::Quarantine => {
                     available.remove(k);
                     not_reachable.remove(k);
-                    quarantined.insert(*k);
+                    quarantined.insert(k.clone());
                     node.logs_mut().quarantine();
                 }
                 PolicyReport::LiftQuarantine => {
-                    if node.address().is_some() {
-                        available.insert(*k);
+                    if node.address().is_discoverable() {
+                        available.insert(k.clone());
                     } else {
-                        not_reachable.insert(*k);
+                        not_reachable.insert(k.clone());
                     }
                     quarantined.remove(k);
                     node.logs_mut().lift_quarantine();
@@ -183,26 +188,26 @@ impl Nodes {
 }
 
 impl<'a> VacantEntry<'a> {
-    fn new(nodes: &'a mut Nodes, id: Id) -> Self {
+    fn new(nodes: &'a mut Nodes, id: Address) -> Self {
         VacantEntry { nodes, id }
     }
 
     pub(crate) fn insert(&mut self, default: Node) {
-        debug_assert_eq!(self.key(), default.id());
+        debug_assert_eq!(self.key(), default.address().as_ref());
         assert!(self.nodes.insert(default).is_none());
     }
 
-    fn key(&self) -> &Id {
+    fn key(&self) -> &Address {
         &self.id
     }
 }
 
 impl<'a> OccupiedEntry<'a> {
-    fn new(nodes: &'a mut Nodes, id: Id) -> Self {
+    fn new(nodes: &'a mut Nodes, id: Address) -> Self {
         OccupiedEntry { nodes, id }
     }
 
-    fn key(&self) -> &Id {
+    fn key(&self) -> &Address {
         &self.id
     }
 
@@ -212,22 +217,22 @@ impl<'a> OccupiedEntry<'a> {
         P: Policy,
     {
         let node = self.nodes.all.get_mut(&self.id).unwrap();
-        let was_reachable = node.address().is_some();
+        let was_reachable = node.address().is_discoverable();
         f(node);
         let report = policy.check(node);
 
         match report {
             PolicyReport::None => {
-                let now_reachable = node.address().is_some();
+                let now_reachable = node.address().is_discoverable();
                 if was_reachable && !now_reachable {
                     if self.nodes.available.remove(&self.id) {
-                        self.nodes.not_reachable.insert(self.id);
+                        self.nodes.not_reachable.insert(self.id.clone());
                     }
                 } else if !was_reachable
                     && now_reachable
                     && self.nodes.not_reachable.remove(&self.id)
                 {
-                    self.nodes.available.insert(self.id);
+                    self.nodes.available.insert(self.id.clone());
                 }
             }
             PolicyReport::Forget => {
@@ -239,14 +244,14 @@ impl<'a> OccupiedEntry<'a> {
             PolicyReport::Quarantine => {
                 self.nodes.available.remove(&self.id);
                 self.nodes.not_reachable.remove(&self.id);
-                self.nodes.quarantined.insert(self.id);
+                self.nodes.quarantined.insert(self.id.clone());
                 node.logs_mut().quarantine();
             }
             PolicyReport::LiftQuarantine => {
-                if node.address().is_some() {
-                    self.nodes.available.insert(self.id);
+                if node.address().is_discoverable() {
+                    self.nodes.available.insert(self.id.clone());
                 } else {
-                    self.nodes.not_reachable.insert(self.id);
+                    self.nodes.not_reachable.insert(self.id.clone());
                 }
                 self.nodes.quarantined.remove(&self.id);
                 node.logs_mut().lift_quarantine();
@@ -282,7 +287,7 @@ impl<'a> Entry<'a> {
         }
     }
 
-    pub fn key(&self) -> &Id {
+    pub fn key(&self) -> &Address {
         match self {
             Entry::Vacant(node_entry) => node_entry.key(),
             Entry::Occupied(node_entry) => node_entry.key(),

@@ -1,4 +1,4 @@
-use crate::{GossipsBuilder, Id, Layer, Node, NodeProfile, Nodes, ViewBuilder};
+use crate::{Address, GossipsBuilder, Layer, Node, NodeProfile, Nodes, ViewBuilder};
 use rayon::prelude::*;
 
 const VICINITY_MAX_VIEW_SIZE: usize = 20;
@@ -11,7 +11,7 @@ const VICINITY_MAX_GOSSIP_LENGTH: usize = 10;
 /// events to arbitrary subscribers of a topic.
 #[derive(Clone, Debug)]
 pub struct Vicinity {
-    view: Vec<Id>,
+    view: Vec<Address>,
 }
 impl Layer for Vicinity {
     fn alias(&self) -> &'static str {
@@ -28,7 +28,7 @@ impl Layer for Vicinity {
             all_nodes
                 .available_nodes()
                 .iter()
-                .filter(|id| *id != identity.id())
+                .filter(|id| Some(*id) != identity.address())
                 .filter_map(|id| all_nodes.get(id))
                 .collect(),
             VICINITY_MAX_VIEW_SIZE,
@@ -75,7 +75,7 @@ impl Vicinity {
         to: &NodeProfile,
         mut profiles: Vec<&Node>,
         max: usize,
-    ) -> Vec<Id> {
+    ) -> Vec<Address> {
         // Use unstable parallel sort as total number of nodes can be quite large.
         profiles.par_sort_unstable_by(|left, right| {
             to.proximity(left.profile())
@@ -85,8 +85,7 @@ impl Vicinity {
         profiles
             .into_iter()
             .take(max)
-            .map(|v| v.id())
-            .copied()
+            .map(|v| v.address().as_ref().clone())
             .collect()
     }
 }

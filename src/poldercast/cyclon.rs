@@ -1,4 +1,4 @@
-use crate::{GossipsBuilder, Id, Layer, NodeProfile, Nodes, ViewBuilder};
+use crate::{Address, GossipsBuilder, Layer, NodeProfile, Nodes, ViewBuilder};
 use rand::{seq::IteratorRandom, Rng};
 use std::collections::BTreeSet;
 
@@ -11,14 +11,14 @@ const CYCLON_MAX_GOSSIPING_LENGTH: usize = 10;
 /// It also make sure we contact the least contacted node for the next
 /// gossiping round.
 #[derive(Clone, Debug)]
-pub struct Cyclon(Vec<Id>);
+pub struct Cyclon(Vec<Address>);
 
 impl Cyclon {
     fn with_capacity(capacity: usize) -> Self {
         Cyclon(Vec::with_capacity(capacity))
     }
 
-    fn populate_random<R>(&mut self, mut rng: R, known_nodes: &BTreeSet<Id>, capacity: usize)
+    fn populate_random<R>(&mut self, mut rng: R, known_nodes: &BTreeSet<Address>, capacity: usize)
     where
         R: Rng,
     {

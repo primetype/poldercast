@@ -1,4 +1,4 @@
-use crate::{GossipsBuilder, Id, Layer, NodeProfile, Nodes, ViewBuilder};
+use crate::{Address, GossipsBuilder, Layer, NodeProfile, Nodes, ViewBuilder};
 use rand::{seq::IteratorRandom, Rng};
 use std::collections::BTreeSet;
 
@@ -10,7 +10,7 @@ const DEFAULT_MAX_VIEW_LENGTH: usize = 20;
 /// This layer selects node for event propagation, but not for gossiping.
 #[derive(Clone, Debug)]
 pub struct RandomDirectConnections {
-    view: Vec<Id>,
+    view: Vec<Address>,
     max_view_length: usize,
 }
 
@@ -25,7 +25,7 @@ impl RandomDirectConnections {
         }
     }
 
-    fn populate_random<R>(&mut self, mut rng: R, known_nodes: &BTreeSet<Id>, capacity: usize)
+    fn populate_random<R>(&mut self, mut rng: R, known_nodes: &BTreeSet<Address>, capacity: usize)
     where
         R: Rng,
     {
