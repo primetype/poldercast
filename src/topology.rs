@@ -16,10 +16,10 @@ pub struct Topology {
 }
 
 impl Topology {
-    pub fn new(profile: NodeProfile) -> Self {
+    pub fn new(cap: usize, profile: NodeProfile) -> Self {
         Self {
             profile,
-            nodes: Nodes::default(),
+            nodes: Nodes::new(cap),
             layers: Vec::default(),
             policy: Box::new(DefaultPolicy::default()),
         }

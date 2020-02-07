@@ -1,10 +1,11 @@
 use crate::{Id, Node, Policy, PolicyReport};
+use lru::LruCache;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Nodes {
-    all: HashMap<Id, Node>,
+    all: LruCache<Id, Node>,
     quarantined: HashSet<Id>,
     not_reachable: BTreeSet<Id>,
     available: BTreeSet<Id>,
@@ -34,16 +35,25 @@ pub struct OccupiedEntry<'a> {
 }
 
 impl Nodes {
+    pub fn new(cap: usize) -> Self {
+        Self {
+            all: LruCache::new(cap),
+            quarantined: HashSet::default(),
+            not_reachable: BTreeSet::default(),
+            available: BTreeSet::default(),
+        }
+    }
+
     pub(crate) fn get<'a>(&'a self, id: &Id) -> Option<&'a Node> {
-        self.all.get(id)
+        self.all.peek(id)
     }
 
     pub(crate) fn get_mut<'a>(&'a mut self, id: &Id) -> Option<&'a mut Node> {
-        self.all.get_mut(id)
+        self.all.peek_mut(id)
     }
 
     pub fn entry(&mut self, public_id: Id) -> Entry<'_> {
-        if self.all.contains_key(&public_id) {
+        if self.all.contains(&public_id) {
             Entry::Occupied(OccupiedEntry::new(self, public_id))
         } else {
             Entry::Vacant(VacantEntry::new(self, public_id))
@@ -62,7 +72,7 @@ impl Nodes {
     pub fn all_available_nodes(&self) -> Vec<&Node> {
         self.available_nodes()
             .iter()
-            .filter_map(|id| self.all.get(id))
+            .filter_map(|id| self.all.peek(id))
             .collect()
     }
 
@@ -74,7 +84,7 @@ impl Nodes {
     pub fn all_quarantined_nodes(&self) -> Vec<&Node> {
         self.quarantined_nodes()
             .iter()
-            .filter_map(|id| self.all.get(id))
+            .filter_map(|id| self.all.peek(id))
             .collect()
     }
 
@@ -86,7 +96,7 @@ impl Nodes {
     pub fn all_unreachable_nodes(&self) -> Vec<&Node> {
         self.unreachable_nodes()
             .iter()
-            .filter_map(|id| self.all.get(id))
+            .filter_map(|id| self.all.peek(id))
             .collect()
     }
 
@@ -119,7 +129,7 @@ impl Nodes {
         } else {
             self.not_reachable.insert(id);
         }
-        self.all.insert(id, node)
+        self.all.put(id, node)
     }
 
     pub(crate) fn reset<P>(&mut self, policy: &mut P)
@@ -130,25 +140,25 @@ impl Nodes {
         let mut not_reachable = std::mem::replace(&mut self.not_reachable, Default::default());
         let mut quarantined = std::mem::replace(&mut self.quarantined, Default::default());
 
-        self.all.retain(|k, node| {
+        let mut to_remove = Vec::new();
+
+        for (k, node) in self.all.iter_mut() {
             let report = policy.check(node);
 
             match report {
-                PolicyReport::None => true,
+                PolicyReport::None => (),
                 PolicyReport::Forget => {
                     available.remove(k);
                     not_reachable.remove(k);
                     quarantined.remove(k);
 
-                    false
+                    to_remove.push(*k);
                 }
                 PolicyReport::Quarantine => {
                     available.remove(k);
                     not_reachable.remove(k);
                     quarantined.insert(*k);
                     node.logs_mut().quarantine();
-
-                    true
                 }
                 PolicyReport::LiftQuarantine => {
                     if node.address().is_some() {
@@ -158,11 +168,13 @@ impl Nodes {
                     }
                     quarantined.remove(k);
                     node.logs_mut().lift_quarantine();
-
-                    true
                 }
             }
-        });
+        }
+
+        for k in to_remove {
+            self.all.pop(&k);
+        }
 
         std::mem::replace(&mut self.available, available);
         std::mem::replace(&mut self.not_reachable, not_reachable);
@@ -222,7 +234,7 @@ impl<'a> OccupiedEntry<'a> {
                 self.nodes.available.remove(&self.id);
                 self.nodes.not_reachable.remove(&self.id);
                 self.nodes.quarantined.remove(&self.id);
-                self.nodes.all.remove(&self.id);
+                self.nodes.all.pop(&self.id);
             }
             PolicyReport::Quarantine => {
                 self.nodes.available.remove(&self.id);
