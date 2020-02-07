@@ -16,7 +16,23 @@ pub struct Topology {
 }
 
 impl Topology {
-    pub fn new(cap: usize, profile: NodeProfile) -> Self {
+    /// create a new topology for the given [`NodeProfile`].
+    ///
+    /// the topology will manage a set of peers that is capped by the given
+    /// `cap` default value of `1_024`.
+    ///
+    /// [`NodeProfile`]: ./struct.NodeProfile.html
+    pub fn new(profile: NodeProfile) -> Self {
+        Self::new_with(1_024, profile)
+    }
+
+    /// create a new topology for the given [`NodeProfile`] and capacity
+    ///
+    /// The capacity will be the max number of entries in the topology. Removing
+    /// the items that are the least recently used.
+    ///
+    /// [`NodeProfile`]: ./struct.NodeProfile.html
+    pub fn new_with(cap: usize, profile: NodeProfile) -> Self {
         Self {
             profile,
             nodes: Nodes::new(cap),
