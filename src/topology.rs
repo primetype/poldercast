@@ -54,7 +54,7 @@ impl Topology {
             layer.view(&mut view_builder, &mut self.nodes)
         }
 
-        view_builder.build(&self.nodes)
+        view_builder.build(&mut self.nodes)
     }
 
     fn update_known_nodes(&mut self, from: Address, gossips: Gossips) {

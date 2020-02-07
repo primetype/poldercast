@@ -46,11 +46,10 @@ impl ViewBuilder {
         self.view.insert(node.address().as_ref().clone());
     }
 
-    pub fn build(self, nodes: &Nodes) -> Vec<NodeInfo> {
+    pub(crate) fn build(self, nodes: &mut Nodes) -> Vec<NodeInfo> {
         self.view
             .into_iter()
-            .filter_map(|id| nodes.get(&id))
-            .map(|node| node.info().clone())
+            .filter_map(|id| nodes.get(&id).map(|node| node.info().clone()))
             .collect()
     }
 }

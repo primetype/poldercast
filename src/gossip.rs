@@ -31,7 +31,7 @@ impl GossipsBuilder {
         let mut gossips = self
             .gossips
             .into_iter()
-            .filter_map(|id| nodes.get(&id))
+            .filter_map(|id| nodes.peek(&id))
             .map(|node| node.profile().clone())
             .collect::<Vec<NodeProfile>>();
         gossips.push(identity);

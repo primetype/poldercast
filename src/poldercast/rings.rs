@@ -118,26 +118,26 @@ impl TopicView {
         if let Some(from) = from {
             if self.is_predecessor(&from) {
                 for node in self.successors().filter_map(|slot| slot.option()) {
-                    if let Some(node) = all_nodes.get_mut(node) {
+                    if let Some(node) = all_nodes.peek_mut(node) {
                         view_builder.add(node)
                     }
                 }
             } else if self.is_successor(&from) {
                 for node in self.predecessors().filter_map(|slot| slot.option()) {
-                    if let Some(node) = all_nodes.get_mut(node) {
+                    if let Some(node) = all_nodes.peek_mut(node) {
                         view_builder.add(node)
                     }
                 }
             } else {
                 for node in self.iter().filter_map(|slot| slot.option()) {
-                    if let Some(node) = all_nodes.get_mut(node) {
+                    if let Some(node) = all_nodes.peek_mut(node) {
                         view_builder.add(node)
                     }
                 }
             }
         } else {
             for node in self.iter().filter_map(|slot| slot.option()) {
-                if let Some(node) = all_nodes.get_mut(node) {
+                if let Some(node) = all_nodes.peek_mut(node) {
                     view_builder.add(node)
                 }
             }
@@ -230,7 +230,7 @@ impl Rings {
             let known_nodes = all_nodes.available_nodes();
             let known_nodes = known_nodes
                 .iter()
-                .filter_map(|id| all_nodes.get(id).map(|v| (id.clone(), v)))
+                .filter_map(|id| all_nodes.peek(id).map(|v| (id.clone(), v)))
                 .filter(|(_, node)| node.profile().address().is_some())
                 .collect();
 
@@ -249,7 +249,7 @@ impl Rings {
         all_nodes: &Nodes,
     ) {
         let gossip_node_id = gossip_builder.recipient().clone();
-        let gossip_node = all_nodes.get(&gossip_node_id).unwrap();
+        let gossip_node = all_nodes.peek(&gossip_node_id).unwrap();
 
         // these are the subscriptions in common between the gossip node and our nodes
         let common_topics: Subscriptions = self_node
@@ -261,7 +261,7 @@ impl Rings {
         let candidates: BTreeMap<Address, &Node> = all_nodes
             .available_nodes()
             .iter()
-            .filter_map(|id| all_nodes.get(id))
+            .filter_map(|id| all_nodes.peek(id))
             .filter(|node| node.profile().address().is_some())
             .filter(|v| {
                 v.profile()

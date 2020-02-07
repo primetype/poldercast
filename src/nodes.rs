@@ -44,11 +44,19 @@ impl Nodes {
         }
     }
 
-    pub(crate) fn get<'a>(&'a self, id: &Address) -> Option<&'a Node> {
-        self.all.peek(id)
+    pub(crate) fn get<'a>(&'a mut self, id: &Address) -> Option<&'a Node> {
+        self.all.get(id)
     }
 
     pub(crate) fn get_mut<'a>(&'a mut self, id: &Address) -> Option<&'a mut Node> {
+        self.all.get_mut(id)
+    }
+
+    pub(crate) fn peek<'a>(&'a self, id: &Address) -> Option<&'a Node> {
+        self.all.peek(id)
+    }
+
+    pub(crate) fn peek_mut<'a>(&'a mut self, id: &Address) -> Option<&'a mut Node> {
         self.all.peek_mut(id)
     }
 

@@ -29,7 +29,7 @@ impl Layer for Vicinity {
                 .available_nodes()
                 .iter()
                 .filter(|id| Some(*id) != identity.address())
-                .filter_map(|id| all_nodes.get(id))
+                .filter_map(|id| all_nodes.peek(id))
                 .collect(),
             VICINITY_MAX_VIEW_SIZE,
         )
@@ -43,14 +43,14 @@ impl Layer for Vicinity {
     ) {
         let gossips = self.select_closest_nodes(
             all_nodes
-                .get(gossips_builder.recipient())
+                .peek(gossips_builder.recipient())
                 .unwrap()
                 .profile(),
             all_nodes
                 .available_nodes()
                 .iter()
                 .filter(|id| *id != gossips_builder.recipient())
-                .filter_map(|id| all_nodes.get(id))
+                .filter_map(|id| all_nodes.peek(id))
                 .collect(),
             VICINITY_MAX_GOSSIP_LENGTH,
         );
@@ -61,7 +61,7 @@ impl Layer for Vicinity {
 
     fn view(&mut self, view_builder: &mut ViewBuilder, all_nodes: &mut Nodes) {
         for id in self.view.iter() {
-            if let Some(node) = all_nodes.get_mut(id) {
+            if let Some(node) = all_nodes.peek_mut(id) {
                 view_builder.add(node)
             }
         }

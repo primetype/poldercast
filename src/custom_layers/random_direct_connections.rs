@@ -73,7 +73,7 @@ impl Layer for RandomDirectConnections {
 
     fn view(&mut self, view_builder: &mut ViewBuilder, all_nodes: &mut Nodes) {
         for id in self.view.iter() {
-            if let Some(node) = all_nodes.get_mut(id) {
+            if let Some(node) = all_nodes.peek_mut(id) {
                 view_builder.add(node)
             }
         }
