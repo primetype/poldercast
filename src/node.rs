@@ -1,6 +1,6 @@
 #![allow(deprecated)]
 
-use crate::{Address, Id, Logs, Proximity, Record, Subscription, Subscriptions};
+use crate::{id::Id, Address, Logs, Proximity, Record, Subscription, Subscriptions};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

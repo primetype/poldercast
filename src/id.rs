@@ -15,8 +15,14 @@ use std::{fmt, str::FromStr};
 /// The requirements from poldercast paper is that the [`Id`] is to be sortable
 /// and to occupy a circular value space.
 ///
+/// # DEPRECATED
+///
+/// The use of `Id` has been deprecated. However it is still used internally
+/// for compatibility purpose and is used in the [`NodeProfile`]. The Id will
+/// be removed from the crate as soon as we reach stability.
+///
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[deprecated(since = "0.11.3", note = "ID is no longer used")]
+#[deprecated(since = "0.12.0", note = "ID is no longer used")]
 pub struct Id([u8; ID_LEN]);
 
 const ID_LEN: usize = 24;

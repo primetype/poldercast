@@ -33,7 +33,7 @@ impl Address {
     }
 
     #[deprecated(
-        since = "0.11.3",
+        since = "0.12.0",
         note = "Use the `multi_address` function instead, this function will be removed"
     )]
     pub fn to_socketaddr(&self) -> Option<SocketAddr> {

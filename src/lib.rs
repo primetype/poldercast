@@ -35,12 +35,11 @@ mod view;
 pub use self::{
     address::Address,
     gossip::{Gossips, GossipsBuilder},
-    id::Id,
     layer::Layer,
     logs::Logs,
     node::{Node, NodeInfo, NodeProfile, NodeProfileBuilder},
-    nodes::Nodes,
     nodes::Count,
+    nodes::Nodes,
     policy::{DefaultPolicy, Policy, PolicyReport, Record, Strike, StrikeReason},
     topic::{InterestLevel, Proximity, Subscription, Subscriptions, Topic},
     topology::Topology,
