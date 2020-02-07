@@ -141,9 +141,9 @@ impl Nodes {
     where
         P: Policy,
     {
-        let mut available = std::mem::replace(&mut self.available, Default::default());
-        let mut not_reachable = std::mem::replace(&mut self.not_reachable, Default::default());
-        let mut quarantined = std::mem::replace(&mut self.quarantined, Default::default());
+        let available = &mut self.available;
+        let not_reachable = &mut self.not_reachable;
+        let quarantined = &mut self.quarantined;
 
         let mut to_remove = Vec::new();
 
@@ -180,10 +180,6 @@ impl Nodes {
         for k in to_remove {
             self.all.pop(&k);
         }
-
-        std::mem::replace(&mut self.available, available);
-        std::mem::replace(&mut self.not_reachable, not_reachable);
-        std::mem::replace(&mut self.quarantined, quarantined);
     }
 }
 
