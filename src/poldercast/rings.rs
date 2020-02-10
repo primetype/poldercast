@@ -249,35 +249,35 @@ impl Rings {
         all_nodes: &Nodes,
     ) {
         let gossip_node_id = gossip_builder.recipient().clone();
-        let gossip_node = all_nodes.peek(&gossip_node_id).unwrap();
+        if let Some(gossip_node) = all_nodes.peek(&gossip_node_id) {
+            // these are the subscriptions in common between the gossip node and our nodes
+            let common_topics: Subscriptions = self_node
+                .common_subscriptions(&gossip_node.profile())
+                .cloned()
+                .collect();
 
-        // these are the subscriptions in common between the gossip node and our nodes
-        let common_topics: Subscriptions = self_node
-            .common_subscriptions(&gossip_node.profile())
-            .cloned()
-            .collect();
+            // candidates are the one that are common topics.
+            let candidates: BTreeMap<&Address, &Node> = all_nodes
+                .available_nodes()
+                .iter()
+                .filter_map(|id| all_nodes.peek(id))
+                .filter(|node| node.profile().address().is_some())
+                .filter(|v| {
+                    v.profile()
+                        .subscriptions()
+                        .common_subscriptions(&common_topics)
+                        .next()
+                        .is_some()
+                })
+                .map(|v| (v.address(), v))
+                .collect();
 
-        // candidates are the one that are common topics.
-        let candidates: BTreeMap<&Address, &Node> = all_nodes
-            .available_nodes()
-            .iter()
-            .filter_map(|id| all_nodes.peek(id))
-            .filter(|node| node.profile().address().is_some())
-            .filter(|v| {
-                v.profile()
-                    .subscriptions()
-                    .common_subscriptions(&common_topics)
-                    .next()
-                    .is_some()
-            })
-            .map(|v| (v.address(), v))
-            .collect();
+            for topic in common_topics.iter() {
+                let view = select_best_nodes_for_topic(&gossip_node_id, *topic, &candidates);
 
-        for topic in common_topics.iter() {
-            let view = select_best_nodes_for_topic(&gossip_node_id, *topic, &candidates);
-
-            for candidate in view.iter().filter_map(|v| v.option()) {
-                gossip_builder.add(candidate.clone());
+                for candidate in view.iter().filter_map(|v| v.option()) {
+                    gossip_builder.add(candidate.clone());
+                }
             }
         }
     }
