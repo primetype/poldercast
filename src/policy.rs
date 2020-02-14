@@ -1,5 +1,6 @@
 use crate::Node;
 use serde::{Deserialize, Serialize};
+use std::ops::Mul;
 use std::{
     collections::VecDeque,
     time::{Duration, SystemTime},
@@ -13,7 +14,6 @@ pub struct DefaultPolicy;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Strike {
     when: SystemTime,
-
     reason: StrikeReason,
 }
 
@@ -26,6 +26,7 @@ pub enum StrikeReason {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Record {
+    lifetime_strikes: u32,
     strikes: VecDeque<Strike>,
 }
 
@@ -58,11 +59,13 @@ impl Policy for DefaultPolicy {
         // if the node is already quarantined
         if let Some(since) = node.logs().quarantined() {
             let duration = since.elapsed().unwrap();
+            let quarantine_duration =
+                DEFAULT_QUARANTINE_DURATION.mul(node.record().lifetime_strikes);
 
-            if duration < DEFAULT_QUARANTINE_DURATION {
+            if duration < quarantine_duration {
                 // the node still need to do some quarantine time
                 PolicyReport::None
-            } else if node.logs().last_update().elapsed().unwrap() < DEFAULT_QUARANTINE_DURATION {
+            } else if node.logs().last_update().elapsed().unwrap() < quarantine_duration {
                 // the node has been quarantined long enough, check if it has been updated
                 // while being quarantined (i.e. the node is still up and advertising itself
                 // or others are still gossiping about it.)
@@ -98,6 +101,7 @@ impl Record {
     }
 
     pub fn strike(&mut self, reason: StrikeReason) {
+        self.lifetime_strikes += 1;
         self.strikes.push_back(Strike {
             when: SystemTime::now(),
             reason,
