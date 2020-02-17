@@ -16,9 +16,9 @@ pub struct Topology {
 }
 
 impl Topology {
-    /// like `Topology::with_capacity` but with cap set to 1024.
+    /// like `Topology::with_capacity` but with cap set to 10_240.
     pub fn new(profile: NodeProfile) -> Self {
-        Self::with_capacity(1_024, profile)
+        Self::with_capacity(10_240, profile)
     }
 
     pub fn with_capacity(cap: usize, profile: NodeProfile) -> Self {
