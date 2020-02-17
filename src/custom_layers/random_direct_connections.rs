@@ -1,6 +1,6 @@
 use crate::{GossipsBuilder, Id, Layer, NodeProfile, Nodes, ViewBuilder};
 use rand::{seq::IteratorRandom, Rng};
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 
 const DEFAULT_MAX_VIEW_LENGTH: usize = 20;
 
@@ -25,7 +25,7 @@ impl RandomDirectConnections {
         }
     }
 
-    fn populate_random<R>(&mut self, mut rng: R, known_nodes: &BTreeSet<Id>, capacity: usize)
+    fn populate_random<R>(&mut self, mut rng: R, known_nodes: &HashSet<Id>, capacity: usize)
     where
         R: Rng,
     {
@@ -73,7 +73,7 @@ impl Layer for RandomDirectConnections {
 
     fn view(&mut self, view_builder: &mut ViewBuilder, all_nodes: &mut Nodes) {
         for id in self.view.iter() {
-            if let Some(node) = all_nodes.get_mut(id) {
+            if let Some(node) = all_nodes.peek_mut(id) {
                 view_builder.add(node)
             }
         }

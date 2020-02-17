@@ -16,10 +16,15 @@ pub struct Topology {
 }
 
 impl Topology {
+    /// like `Topology::with_capacity` but with cap set to 1024.
     pub fn new(profile: NodeProfile) -> Self {
+        Self::with_capacity(1_024, profile)
+    }
+
+    pub fn with_capacity(cap: usize, profile: NodeProfile) -> Self {
         Self {
             profile,
-            nodes: Nodes::default(),
+            nodes: Nodes::with_capacity(cap),
             layers: Vec::default(),
             policy: Box::new(DefaultPolicy::default()),
         }
@@ -54,7 +59,7 @@ impl Topology {
             layer.view(&mut view_builder, &mut self.nodes)
         }
 
-        view_builder.build(&self.nodes)
+        view_builder.build(&mut self.nodes)
     }
 
     fn update_known_nodes(&mut self, _from: Id, gossips: Gossips) {

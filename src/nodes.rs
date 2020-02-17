@@ -1,13 +1,14 @@
 use crate::{Id, Node, Policy, PolicyReport};
-use std::collections::{BTreeSet, HashMap, HashSet};
-use serde::{Serialize, Deserialize};
+use lru::LruCache;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Nodes {
-    all: HashMap<Id, Node>,
+    all: LruCache<Id, Node>,
     quarantined: HashSet<Id>,
-    not_reachable: BTreeSet<Id>,
-    available: BTreeSet<Id>,
+    not_reachable: HashSet<Id>,
+    available: HashSet<Id>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -34,7 +35,24 @@ pub struct OccupiedEntry<'a> {
 }
 
 impl Nodes {
-    pub(crate) fn get<'a>(&'a self, id: &Id) -> Option<&'a Node> {
+    pub fn with_capacity(cap: usize) -> Self {
+        Self {
+            all: LruCache::new(cap),
+            quarantined: HashSet::new(),
+            not_reachable: HashSet::new(),
+            available: HashSet::new(),
+        }
+    }
+
+    pub(crate) fn peek<'a>(&'a self, id: &Id) -> Option<&'a Node> {
+        self.all.peek(id)
+    }
+
+    pub(crate) fn peek_mut<'a>(&'a mut self, id: &Id) -> Option<&'a mut Node> {
+        self.all.peek_mut(id)
+    }
+
+    pub(crate) fn get<'a>(&'a mut self, id: &Id) -> Option<&'a Node> {
         self.all.get(id)
     }
 
@@ -43,14 +61,14 @@ impl Nodes {
     }
 
     pub fn entry(&mut self, public_id: Id) -> Entry<'_> {
-        if self.all.contains_key(&public_id) {
+        if self.all.contains(&public_id) {
             Entry::Occupied(OccupiedEntry::new(self, public_id))
         } else {
             Entry::Vacant(VacantEntry::new(self, public_id))
         }
     }
 
-    pub fn available_nodes(&self) -> &BTreeSet<Id> {
+    pub fn available_nodes(&self) -> &HashSet<Id> {
         &self.available
     }
 
@@ -62,7 +80,7 @@ impl Nodes {
     pub fn all_available_nodes(&self) -> Vec<&Node> {
         self.available_nodes()
             .iter()
-            .filter_map(|id| self.all.get(id))
+            .filter_map(|id| self.all.peek(id))
             .collect()
     }
 
@@ -74,7 +92,7 @@ impl Nodes {
     pub fn all_quarantined_nodes(&self) -> Vec<&Node> {
         self.quarantined_nodes()
             .iter()
-            .filter_map(|id| self.all.get(id))
+            .filter_map(|id| self.all.peek(id))
             .collect()
     }
 
@@ -86,7 +104,7 @@ impl Nodes {
     pub fn all_unreachable_nodes(&self) -> Vec<&Node> {
         self.unreachable_nodes()
             .iter()
-            .filter_map(|id| self.all.get(id))
+            .filter_map(|id| self.all.peek(id))
             .collect()
     }
 
@@ -94,7 +112,7 @@ impl Nodes {
     ///
     /// This can be nodes that are behind a firewall or a NAT and that can't do
     /// hole punching to allow other nodes to connect to them.
-    pub fn unreachable_nodes(&self) -> &BTreeSet<Id> {
+    pub fn unreachable_nodes(&self) -> &HashSet<Id> {
         &self.not_reachable
     }
 
@@ -108,7 +126,7 @@ impl Nodes {
             all_count: self.all.len(),
             available_count: self.available.len(),
             not_reachable_count: self.not_reachable.len(),
-            quarantined_count: self.quarantined.len()
+            quarantined_count: self.quarantined.len(),
         }
     }
 
@@ -118,55 +136,66 @@ impl Nodes {
             self.available.insert(id);
         } else {
             self.not_reachable.insert(id);
+        };
+
+        // prevent entering an element that will trigger removing
+        // the least recently used entry (this is something missing
+        // from the `lru` crate that would be improved: detecting when
+        // a `put` removed an entry, though it can be simulated here
+        // with the following checks):
+        while self.all.len() >= self.all.cap() {
+            if let Some((k, _)) = self.all.pop_lru() {
+                self.available.remove(&k);
+                self.quarantined.remove(&k);
+                self.not_reachable.remove(&k);
+            }
         }
-        self.all.insert(id, node.clone())
+        self.all.put(id, node)
     }
 
     pub(crate) fn reset<P>(&mut self, policy: &mut P)
     where
         P: Policy,
     {
-        let mut available = std::mem::replace(&mut self.available, Default::default());
-        let mut not_reachable = std::mem::replace(&mut self.not_reachable, Default::default());
-        let mut quarantined = std::mem::replace(&mut self.quarantined, Default::default());
+        let available = &mut self.available;
+        let not_reachable = &mut self.not_reachable;
+        let quarantined = &mut self.quarantined;
 
-        self.all.retain(|k, node| {
+        let mut to_remove = Vec::new();
+
+        for (k, node) in self.all.iter_mut() {
             let report = policy.check(node);
 
             match report {
-                PolicyReport::None => true,
+                PolicyReport::None => (),
                 PolicyReport::Forget => {
                     available.remove(k);
                     not_reachable.remove(k);
                     quarantined.remove(k);
 
-                    false
+                    to_remove.push(k.clone());
                 }
                 PolicyReport::Quarantine => {
                     available.remove(k);
                     not_reachable.remove(k);
-                    quarantined.insert(*k);
+                    quarantined.insert(k.clone());
                     node.logs_mut().quarantine();
-
-                    true
                 }
                 PolicyReport::LiftQuarantine => {
                     if node.address().is_some() {
-                        available.insert(*k);
+                        available.insert(k.clone());
                     } else {
-                        not_reachable.insert(*k);
+                        not_reachable.insert(k.clone());
                     }
                     quarantined.remove(k);
                     node.logs_mut().lift_quarantine();
-
-                    true
                 }
             }
-        });
+        }
 
-        std::mem::replace(&mut self.available, available);
-        std::mem::replace(&mut self.not_reachable, not_reachable);
-        std::mem::replace(&mut self.quarantined, quarantined);
+        for k in to_remove {
+            self.all.pop(&k);
+        }
     }
 }
 
@@ -222,7 +251,7 @@ impl<'a> OccupiedEntry<'a> {
                 self.nodes.available.remove(&self.id);
                 self.nodes.not_reachable.remove(&self.id);
                 self.nodes.quarantined.remove(&self.id);
-                self.nodes.all.remove(&self.id);
+                self.nodes.all.pop(&self.id);
             }
             PolicyReport::Quarantine => {
                 self.nodes.available.remove(&self.id);

@@ -118,26 +118,26 @@ impl TopicView {
         if let Some(from) = from {
             if self.is_predecessor(from) {
                 for node in self.successors().filter_map(|slot| slot.option()) {
-                    if let Some(node) = all_nodes.get_mut(node) {
+                    if let Some(node) = all_nodes.peek_mut(node) {
                         view_builder.add(node)
                     }
                 }
             } else if self.is_successor(from) {
                 for node in self.predecessors().filter_map(|slot| slot.option()) {
-                    if let Some(node) = all_nodes.get_mut(node) {
+                    if let Some(node) = all_nodes.peek_mut(node) {
                         view_builder.add(node)
                     }
                 }
             } else {
                 for node in self.iter().filter_map(|slot| slot.option()) {
-                    if let Some(node) = all_nodes.get_mut(node) {
+                    if let Some(node) = all_nodes.peek_mut(node) {
                         view_builder.add(node)
                     }
                 }
             }
         } else {
             for node in self.iter().filter_map(|slot| slot.option()) {
-                if let Some(node) = all_nodes.get_mut(node) {
+                if let Some(node) = all_nodes.peek_mut(node) {
                     view_builder.add(node)
                 }
             }
@@ -229,7 +229,7 @@ impl Rings {
         let known_nodes = all_nodes.available_nodes();
         let known_nodes = known_nodes
             .iter()
-            .filter_map(|id| all_nodes.get(id).map(|v| (*id, v)))
+            .filter_map(|id| all_nodes.peek(id).map(|v| (*id, v)))
             .filter(|(_, node)| node.profile().address().is_some())
             .collect();
 
@@ -247,35 +247,35 @@ impl Rings {
         all_nodes: &Nodes,
     ) {
         let gossip_node_id = *gossip_builder.recipient();
-        let gossip_node = all_nodes.get(&gossip_node_id).unwrap();
+        if let Some(gossip_node) = all_nodes.peek(&gossip_node_id) {
+            // these are the subscriptions in common between the gossip node and our nodes
+            let common_topics: Subscriptions = self_node
+                .common_subscriptions(&gossip_node.profile())
+                .cloned()
+                .collect();
 
-        // these are the subscriptions in common between the gossip node and our nodes
-        let common_topics: Subscriptions = self_node
-            .common_subscriptions(&gossip_node.profile())
-            .cloned()
-            .collect();
+            // candidates are the one that are common topics.
+            let candidates: BTreeMap<Id, &Node> = all_nodes
+                .available_nodes()
+                .iter()
+                .filter_map(|id| all_nodes.peek(id))
+                .filter(|node| node.profile().address().is_some())
+                .filter(|v| {
+                    v.profile()
+                        .subscriptions()
+                        .common_subscriptions(&common_topics)
+                        .next()
+                        .is_some()
+                })
+                .map(|v| (*v.id(), v))
+                .collect();
 
-        // candidates are the one that are common topics.
-        let candidates: BTreeMap<Id, &Node> = all_nodes
-            .available_nodes()
-            .iter()
-            .filter_map(|id| all_nodes.get(id))
-            .filter(|node| node.profile().address().is_some())
-            .filter(|v| {
-                v.profile()
-                    .subscriptions()
-                    .common_subscriptions(&common_topics)
-                    .next()
-                    .is_some()
-            })
-            .map(|v| (*v.id(), v))
-            .collect();
+            for topic in common_topics.iter() {
+                let view = select_best_nodes_for_topic(&gossip_node_id, *topic, &candidates);
 
-        for topic in common_topics.iter() {
-            let view = select_best_nodes_for_topic(&gossip_node_id, *topic, &candidates);
-
-            for candidate in view.iter().filter_map(|v| v.option()) {
-                gossip_builder.add(*candidate);
+                for candidate in view.iter().filter_map(|v| v.option()) {
+                    gossip_builder.add(*candidate);
+                }
             }
         }
     }
