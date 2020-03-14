@@ -1,4 +1,5 @@
 use crate::{GossipsBuilder, Id, Layer, Node, NodeProfile, Nodes, ViewBuilder};
+use rand::seq::SliceRandom;
 use rayon::prelude::*;
 
 const VICINITY_MAX_VIEW_SIZE: usize = 20;
@@ -75,6 +76,14 @@ impl Vicinity {
         mut profiles: Vec<&Node>,
         max: usize,
     ) -> Vec<Id> {
+        // This is a bug in the way Vicinity is implemented. All profiles are sent to us in a pseudo
+        // sorted order. If we then sort by proximity, we will always converge to the same
+        // set of nodes (the top 20 stake pools sorted lexicographically by the hash of each nodes
+        // Address). This will result in non-randomly induced links. To counter, we shuffle the
+        // input first. This gives us more diversity in our pool selection, and should result in
+        // better event propagation.
+        profiles.shuffle(&mut rand::thread_rng());
+
         // Use unstable parallel sort as total number of nodes can be quite large.
         profiles.par_sort_unstable_by(|left, right| {
             to.proximity(left.profile())
