@@ -13,7 +13,8 @@ Peer to Peer topology management
 """
 
 [dependencies]
-multiaddr = "0.3"
+multiaddr = "0.3.1"
+cid = "=0.3.1"
 rand = "0.7"
 hex = "0.4"
 serde = { version = "1.0", features = ["derive"] }
