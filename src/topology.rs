@@ -1,6 +1,6 @@
 use crate::nodes::Entry;
 use crate::{
-    Address, DefaultPolicy, Gossips, GossipsBuilder, Layer, Node, NodeInfo, NodeProfile, Nodes,
+    Address, DefaultPolicy, Gossips, GossipsBuilder, Layer, Node, NodeProfile, Nodes,
     Policy, PolicyReport, Selection, ViewBuilder,
 };
 
@@ -59,7 +59,7 @@ impl Topology {
         self.policy = Box::new(policy);
     }
 
-    pub fn view(&mut self, from: Option<Address>, selection: Selection) -> Vec<NodeInfo> {
+    pub fn view(&mut self, from: Option<Address>, selection: Selection) -> Vec<Address> {
         let mut view_builder = ViewBuilder::new(selection);
 
         if let Some(from) = from {

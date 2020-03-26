@@ -1,4 +1,4 @@
-use crate::{Address, Node, NodeInfo, Nodes, Topic};
+use crate::{Address, Node, Topic, Nodes};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -46,10 +46,15 @@ impl ViewBuilder {
         self.view.insert(node.address().clone());
     }
 
-    pub(crate) fn build(self, nodes: &mut Nodes) -> Vec<NodeInfo> {
-        self.view
-            .into_iter()
-            .filter_map(|id| nodes.get(&id).map(|node| node.info().clone()))
-            .collect()
+    pub(crate) fn build(self, nodes: &mut Nodes) -> Vec<Address> {
+        let mut result = Vec::with_capacity(self.view.len());
+
+        for address in self.view {
+            // this is necessary to refresh the LRU cache
+            let _ = nodes.get(&address);
+            result.push(address);
+        }
+
+        result
     }
 }

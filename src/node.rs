@@ -84,10 +84,6 @@ impl NodeProfileBuilder {
 }
 
 impl NodeProfile {
-    pub(crate) fn info(&self) -> &NodeInfo {
-        &self.info
-    }
-
     pub fn address(&self) -> Option<&Address> {
         self.info.address.as_ref()
     }
@@ -148,10 +144,6 @@ impl Node {
             logs: Logs::default(),
             record: Record::default(),
         }
-    }
-
-    pub(crate) fn info(&self) -> &NodeInfo {
-        &self.profile().info()
     }
 
     pub fn address(&self) -> &Address {
