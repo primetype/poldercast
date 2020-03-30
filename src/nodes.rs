@@ -130,7 +130,7 @@ impl Nodes {
         }
     }
 
-    fn insert(&mut self, node: Node) -> Option<Node> {
+    pub fn insert(&mut self, node: Node) -> Option<Node> {
         let id = *node.id();
         if node.address().is_some() {
             self.available.insert(id);

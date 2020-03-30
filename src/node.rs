@@ -44,6 +44,13 @@ pub struct Node {
 }
 
 impl NodeInfo {
+    pub fn new(id: Id, address: Address) -> Self {
+        Self {
+            id,
+            address: Some(address),
+        }
+    }
+
     pub fn id(&self) -> &Id {
         &self.id
     }

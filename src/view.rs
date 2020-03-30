@@ -14,6 +14,7 @@ pub struct ViewBuilder {
     selection: Selection,
 
     view: HashSet<Id>,
+    view_info: Vec<NodeInfo>,
 }
 
 impl ViewBuilder {
@@ -22,6 +23,7 @@ impl ViewBuilder {
             event_origin: None,
             selection,
             view: HashSet::new(),
+            view_info: Vec::new(),
         }
     }
 
@@ -46,10 +48,18 @@ impl ViewBuilder {
         self.view.insert(*node.id());
     }
 
+    pub fn add_info(&mut self, node_info: NodeInfo) {
+        self.view_info.push(node_info)
+    }
+
     pub fn build(self, nodes: &mut Nodes) -> Vec<NodeInfo> {
-        self.view
+        let mut view = self.view_info;
+
+        let iter = self
+            .view
             .into_iter()
-            .filter_map(|id| nodes.get(&id).map(|node| node.info().clone()))
-            .collect()
+            .filter_map(|id| nodes.get(&id).map(|node| node.info().clone()));
+        view.extend(iter);
+        view
     }
 }
