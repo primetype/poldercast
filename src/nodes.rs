@@ -44,7 +44,7 @@ impl Nodes {
         }
     }
 
-    pub(crate) fn peek<'a>(&'a self, id: &Id) -> Option<&'a Node> {
+    pub fn peek<'a>(&'a self, id: &Id) -> Option<&'a Node> {
         self.all.peek(id)
     }
 
