@@ -48,7 +48,7 @@ impl Nodes {
         self.all.peek(id)
     }
 
-    pub(crate) fn peek_mut<'a>(&'a mut self, id: &Id) -> Option<&'a mut Node> {
+    pub fn peek_mut<'a>(&'a mut self, id: &Id) -> Option<&'a mut Node> {
         self.all.peek_mut(id)
     }
 
