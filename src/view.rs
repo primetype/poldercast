@@ -1,4 +1,4 @@
-use crate::{Address, Node, Topic, Nodes};
+use crate::{Address, Node, Nodes, Topic};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -43,7 +43,11 @@ impl ViewBuilder {
             node.logs_mut().use_of(*topic);
         }
 
-        self.view.insert(node.address().clone());
+        self.add_address(node.address().clone());
+    }
+
+    pub fn add_address(&mut self, address: Address) {
+        self.view.insert(address);
     }
 
     pub(crate) fn build(self, nodes: &mut Nodes) -> Vec<Address> {
