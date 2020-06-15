@@ -78,7 +78,11 @@ impl NodeProfileBuilder {
     }
 
     pub fn build(&self) -> NodeProfile {
-        let id = self.id.as_ref().cloned().unwrap_or_else(|| Id::generate(rand::thread_rng()));
+        let id = self
+            .id
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| Id::generate(rand::thread_rng()));
         NodeProfile {
             info: NodeInfo {
                 id,

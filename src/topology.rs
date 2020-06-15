@@ -1,7 +1,7 @@
 use crate::nodes::Entry;
 use crate::{
-    Address, DefaultPolicy, Gossips, GossipsBuilder, Layer, Node, NodeProfile, Nodes,
-    Policy, PolicyReport, Selection, ViewBuilder,
+    Address, DefaultPolicy, Gossips, GossipsBuilder, Layer, Node, NodeProfile, Nodes, Policy,
+    PolicyReport, Selection, ViewBuilder,
 };
 
 pub struct Topology {
