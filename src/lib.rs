@@ -45,3 +45,6 @@ pub use self::{
     topology::Topology,
     view::{Selection, ViewBuilder},
 };
+
+#[allow(deprecated)]
+pub use self::id::Id;
