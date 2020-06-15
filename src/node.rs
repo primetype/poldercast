@@ -26,7 +26,7 @@ pub struct NodeProfile {
 }
 
 pub struct NodeProfileBuilder {
-    id: Id,
+    id: Option<Id>,
     address: Option<Address>,
     subscriptions: Subscriptions,
 }
@@ -56,7 +56,7 @@ impl NodeInfo {
 impl NodeProfileBuilder {
     pub fn new() -> Self {
         Self {
-            id: Id::generate(rand::thread_rng()),
+            id: None,
             address: None,
             subscriptions: Subscriptions::default(),
         }
@@ -67,15 +67,21 @@ impl NodeProfileBuilder {
         self
     }
 
+    pub fn id(&mut self, id: Id) -> &mut Self {
+        self.id = Some(id);
+        self
+    }
+
     pub fn add_subscription(&mut self, subscription: Subscription) -> &mut Self {
         self.subscriptions.insert(subscription);
         self
     }
 
     pub fn build(&self) -> NodeProfile {
+        let id = self.id.as_ref().cloned().unwrap_or_else(|| Id::generate(rand::thread_rng()));
         NodeProfile {
             info: NodeInfo {
-                id: self.id,
+                id,
                 address: self.address.clone(),
             },
             subscriptions: self.subscriptions.clone(),
