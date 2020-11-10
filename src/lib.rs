@@ -33,7 +33,7 @@ mod topology;
 mod view;
 
 pub use self::{
-    address::Address,
+    address::{Address, AddressTryFromError},
     gossip::{Gossips, GossipsBuilder},
     layer::Layer,
     logs::Logs,
