@@ -1,8 +1,8 @@
-use multiaddr::Multiaddr;
+use multiaddr::{Multiaddr, Protocol};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 
 /// the address of any given nodes
 ///
@@ -15,6 +15,22 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV
 pub struct Address(Multiaddr);
 
 impl Address {
+    /// Converts from a socket address to a TCP/IP multiaddr.
+    pub fn tcp(addr: SocketAddr) -> Self {
+        let mut m = Multiaddr::with_capacity(2);
+        m.push(Protocol::from(addr.ip()));
+        m.push(Protocol::Tcp(addr.port()));
+        Address(m)
+    }
+
+    /// Converts from a socket address to a UDP/IP multiaddr.
+    pub fn udp(addr: SocketAddr) -> Self {
+        let mut m = Multiaddr::with_capacity(2);
+        m.push(Protocol::from(addr.ip()));
+        m.push(Protocol::Udp(addr.port()));
+        Address(m)
+    }
+
     pub fn to_socket_addr(&self) -> Option<SocketAddr> {
         use multiaddr::Protocol::*;
 
@@ -48,24 +64,6 @@ impl Address {
 
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
-    }
-}
-
-impl From<IpAddr> for Address {
-    fn from(addr: IpAddr) -> Self {
-        Address(addr.into())
-    }
-}
-
-impl From<Ipv4Addr> for Address {
-    fn from(addr: Ipv4Addr) -> Self {
-        Address(addr.into())
-    }
-}
-
-impl From<Ipv6Addr> for Address {
-    fn from(addr: Ipv6Addr) -> Self {
-        Address(addr.into())
     }
 }
 
@@ -128,6 +126,28 @@ mod test {
             let address = format!("/ip4/{}.{}.{}.{}/tcp/{}", ip.0, ip.1, ip.2, ip.3, port);
             address.parse().unwrap()
         }
+    }
+
+    #[test]
+    fn tcp_from_socket_addr() {
+        let socket_addr = "1.2.3.4:5678".parse::<SocketAddr>().unwrap();
+        let address = Address::tcp(socket_addr);
+        assert_eq!(address.to_string(), "/ip4/1.2.3.4/tcp/5678");
+
+        let socket_addr = "[2001:db8::1]:5678".parse::<SocketAddr>().unwrap();
+        let address = Address::tcp(socket_addr);
+        assert_eq!(address.to_string(), "/ip6/2001:db8::1/tcp/5678");
+    }
+
+    #[test]
+    fn udp_from_socket_addr() {
+        let socket_addr = "1.2.3.4:5678".parse::<SocketAddr>().unwrap();
+        let address = Address::udp(socket_addr);
+        assert_eq!(address.to_string(), "/ip4/1.2.3.4/udp/5678");
+
+        let socket_addr = "[2001:db8::1]:5678".parse::<SocketAddr>().unwrap();
+        let address = Address::udp(socket_addr);
+        assert_eq!(address.to_string(), "/ip6/2001:db8::1/udp/5678");
     }
 
     #[test]
