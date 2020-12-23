@@ -1,166 +1,207 @@
-use crate::nodes::Entry;
 use crate::{
-    Address, DefaultPolicy, Gossips, GossipsBuilder, Layer, Node, NodeProfile, Nodes, Policy,
-    PolicyReport, Selection, ViewBuilder,
+    layer::{self, Layer, LayerBuilder, Selection, ViewBuilder},
+    Gossip, Profile, Profiles, Topic,
 };
+use keynesis::key::ed25519;
+use std::{net::SocketAddr, sync::Arc};
 
 pub struct Topology {
-    /// The local node identity
-    profile: NodeProfile,
+    view_layers: Vec<Box<dyn Layer>>,
+    gossip_layers: Vec<Box<dyn Layer>>,
+    profile: Profile,
+    profiles: Profiles,
+}
 
-    nodes: Nodes,
+struct DefaultBuilder;
 
-    layers: Vec<Box<dyn Layer + Send + Sync>>,
+impl LayerBuilder for DefaultBuilder {
+    fn build_for_view(&self) -> Vec<Box<dyn Layer>> {
+        let mut layers: Vec<Box<dyn Layer>> = Vec::with_capacity(3);
 
-    policy: Box<dyn Policy + Send + Sync>,
+        layers.push(Box::new(layer::Rings::new(4)));
+        layers.push(Box::new(layer::Vicinity::new(20)));
+        layers.push(Box::new(layer::Cyclon::new(20)));
+
+        layers
+    }
+
+    fn build_for_gossip(&self) -> Vec<Box<dyn Layer>> {
+        let mut layers: Vec<Box<dyn Layer>> = Vec::with_capacity(3);
+
+        layers.push(Box::new(layer::Rings::new(10)));
+        layers.push(Box::new(layer::Vicinity::new(10)));
+        layers.push(Box::new(layer::Cyclon::new(10)));
+
+        layers
+    }
 }
 
 impl Topology {
-    /// create a new topology for the given [`NodeProfile`].
-    ///
-    /// the topology will manage a set of peers that is capped by the given
-    /// `cap` default value of `1_024`.
-    ///
-    /// [`NodeProfile`]: ./struct.NodeProfile.html
-    pub fn new(profile: NodeProfile) -> Self {
-        Self::new_with(1_024, profile)
+    /// create a Topology for the given profile
+    pub fn new(address: SocketAddr, id: &ed25519::SecretKey) -> Self {
+        Self::new_with(address, id, DefaultBuilder)
     }
 
-    /// create a new topology for the given [`NodeProfile`] and capacity
-    ///
-    /// The capacity will be the max number of entries in the topology. Removing
-    /// the items that are the least recently used.
-    ///
-    /// [`NodeProfile`]: ./struct.NodeProfile.html
-    pub fn new_with(cap: usize, profile: NodeProfile) -> Self {
+    pub fn new_with<LB>(address: SocketAddr, id: &ed25519::SecretKey, builder: LB) -> Self
+    where
+        LB: LayerBuilder,
+    {
+        let profile = Profile::new(address, id);
         Self {
+            view_layers: builder.build_for_view(),
+            gossip_layers: builder.build_for_gossip(),
+
             profile,
-            nodes: Nodes::new(cap),
-            layers: Vec::default(),
-            policy: Box::new(DefaultPolicy::default()),
+            profiles: Profiles::new(512, 256, 128),
         }
     }
 
-    pub fn profile(&self) -> &NodeProfile {
-        &self.profile
-    }
-
-    pub fn add_layer<L>(&mut self, layer: L)
-    where
-        L: Layer + Send + Sync + 'static,
-    {
-        self.layers.push(Box::new(layer));
-    }
-
-    pub fn set_policy<P>(&mut self, policy: P)
-    where
-        P: Policy + Send + Sync + 'static,
-    {
-        self.policy = Box::new(policy);
-    }
-
-    pub fn view(&mut self, from: Option<Address>, selection: Selection) -> Vec<Address> {
-        let mut view_builder = ViewBuilder::new(selection);
-
-        if let Some(from) = from {
-            view_builder.with_origin(from);
+    pub fn update_profile_subscriptions(&mut self, id: &ed25519::SecretKey) {
+        self.profile.clear_subscriptions();
+        for layer in self.view_layers.iter_mut() {
+            layer.subscriptions(self.profile.subscriptions_mut());
         }
 
-        for layer in self.layers.iter_mut() {
-            layer.view(&mut view_builder, &mut self.nodes)
-        }
-
-        view_builder.build(&mut self.nodes)
+        self.profile.commit_gossip(id);
     }
 
-    fn update_known_nodes(&mut self, from: Address, gossips: Gossips) {
-        for gossip in gossips.into_iter() {
-            if gossip.address() == self.profile.address() {
-                // ignore ourselves
-                continue;
-            }
-
-            // can only happen once by the remote
-            let address = gossip.address().cloned().unwrap_or_else(|| from.clone());
-
-            match self.nodes.entry(address.clone()) {
-                Entry::Occupied(mut occupied) => {
-                    occupied.modify(&mut self.policy, |node| node.update_gossip(gossip));
-                }
-                Entry::Vacant(mut vacant) => {
-                    vacant.insert(Node::new(address, gossip));
-                }
-            }
-        }
-    }
-
-    pub fn initiate_gossips(&mut self, with: Address) -> Gossips {
-        if let Some(with) = self.nodes.get_mut(&with) {
-            with.logs_mut().gossiping();
-        }
-        let mut gossips_builder = GossipsBuilder::new(with);
-
-        for layer in self.layers.iter_mut() {
-            layer.gossips(&self.profile, &mut gossips_builder, &self.nodes)
-        }
-
-        gossips_builder.build(self.profile.clone(), &self.nodes)
-    }
-
-    /// reset the layers, allowing an update of the internal state
+    /// subscribe to the given topic
     ///
-    pub fn force_reset_layers(&mut self) {
-        self.nodes.reset(&mut self.policy);
-        self.reset_layers()
-    }
-
-    fn reset_layers(&mut self) {
-        for layer in self.layers.iter_mut() {
-            layer.reset();
-            layer.populate(&self.profile, &self.nodes);
+    /// this function also update our profile
+    pub fn subscribe_topic(&mut self, topic: Topic) {
+        for layer in self.view_layers.iter_mut() {
+            layer.subscribe(topic);
         }
     }
 
-    pub fn accept_gossips(&mut self, from: Address, gossips: Gossips) {
-        if let Some(from) = self.nodes.get_mut(&from) {
-            from.logs_mut().gossiping();
-        }
-
-        self.update_known_nodes(from, gossips);
-
-        self.reset_layers();
-    }
-
-    pub fn exchange_gossips(&mut self, with: Address, gossips: Gossips) -> Gossips {
-        if let Some(with) = self.nodes.get_mut(&with) {
-            with.logs_mut().gossiping();
-        }
-
-        self.update_known_nodes(with.clone(), gossips);
-
-        let mut gossips_builder = GossipsBuilder::new(with);
-
-        for layer in self.layers.iter_mut() {
-            layer.reset();
-            layer.populate(&self.profile, &self.nodes);
-            layer.gossips(&self.profile, &mut gossips_builder, &self.nodes)
-        }
-
-        gossips_builder.build(self.profile.clone(), &self.nodes)
-    }
-
-    pub fn update_node<F>(&mut self, id: Address, update: F) -> Option<PolicyReport>
-    where
-        F: FnOnce(&mut Node),
-    {
-        self.nodes.entry(id).and_modify(&mut self.policy, update)
-    }
-
-    /// function to access the nodes data structure. From there it is possible
-    /// to query the available nodes, the non-publicly-reachable nodes and the
-    /// quarantined nodes.
+    /// unsubscribe to the given topic
     ///
-    pub fn nodes(&self) -> &Nodes {
-        &self.nodes
+    /// this function also update our profile
+    pub fn unsubscribe_topic(&mut self, topic: &Topic) {
+        for layer in self.view_layers.iter_mut() {
+            layer.unsubscribe(topic);
+        }
+
+        self.profile.unsubscribe(topic);
+    }
+
+    /// call this function if you could not establish an handshake from this
+    /// peer. This will prevent to use it in the next profile update.
+    ///
+    /// The node will be removed from our layers, but it will not be
+    /// entirely from our profile pool. We may share it to other nodes
+    /// we may find it relevant
+    pub fn remove_peer(&mut self, id: &ed25519::PublicKey) {
+        for layer in self.view_layers.iter_mut() {
+            layer.remove(id);
+        }
+
+        self.profiles.demote(id);
+    }
+
+    /// call this function to validate you were able to connect with the given
+    /// peer. This will help the system make sure this entry is kept and reuse
+    ///
+    /// Call this function every time you successfully establish an handshake
+    pub fn promote_peer(&mut self, id: &ed25519::PublicKey) {
+        self.profiles.promote(id)
+    }
+
+    /// add a Peer to the Topology
+    ///
+    /// the peer will be considered automatically for all our layers.
+    /// If the peer seem appropriate it will be added to the view and we will
+    /// attempt to connect to it later.
+    ///
+    /// However, if the peer was already demoted some times (i.e. the peer was already
+    /// known and we already know we cannot connect to it for now, it will be required
+    /// to be "forgotten" or to be "promoted" in order to move away from the naughty
+    /// list).
+    pub fn add_peer(&mut self, peer: Profile) -> bool {
+        let id = peer.id();
+
+        let peer = Arc::new(peer);
+
+        if !self.profiles.put(id, Arc::clone(&peer)) {
+            return false;
+        }
+
+        for layer in self.view_layers.iter_mut() {
+            layer.populate(&self.profile, &peer);
+        }
+
+        true
+    }
+
+    pub fn gossips_for(&mut self, recipient: &Profile) -> Vec<Gossip> {
+        let mut gossips = Vec::with_capacity(1024);
+
+        let id = recipient.id();
+
+        for layer in self.gossip_layers.iter_mut() {
+            layer.reset();
+        }
+
+        for subscription in recipient.subscriptions().iter() {
+            for layer in self.gossip_layers.iter_mut() {
+                layer.subscribe(subscription.topic());
+            }
+        }
+
+        for profile in self.view(None, Selection::Any) {
+            for layer in self.gossip_layers.iter_mut() {
+                layer.populate(recipient, &profile);
+            }
+        }
+
+        let mut builder = ViewBuilder::new(Selection::Any);
+        for layer in self.gossip_layers.iter_mut() {
+            layer.view(&mut builder);
+        }
+        let mut keys = builder.build();
+
+        keys.remove(&id); // remove the recipient's ID
+
+        for key in keys {
+            if let Some(profile) = self.profiles.get(&key) {
+                gossips.push(profile.gossip().clone());
+            } else {
+                // we populated the gossip's view with the profiles' nodes
+                // so we should have all the entries that have been selected
+                // in the view.
+                unreachable!()
+            }
+        }
+
+        gossips.push(self.profile.gossip().clone());
+
+        gossips
+    }
+
+    pub fn view(
+        &mut self,
+        from: Option<&ed25519::PublicKey>,
+        selection: Selection,
+    ) -> Vec<Arc<Profile>> {
+        let mut builder = ViewBuilder::new(selection);
+        if let Some(origin) = from {
+            builder.with_origin(*origin);
+        }
+
+        for layer in self.view_layers.iter_mut() {
+            layer.view(&mut builder);
+        }
+
+        let keys = builder.build();
+
+        let mut profiles = Vec::with_capacity(keys.len());
+
+        for key in keys {
+            if let Some(profile) = self.profiles.get(&key) {
+                profiles.push(Arc::clone(profile));
+            }
+        }
+
+        profiles
     }
 }

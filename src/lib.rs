@@ -1,50 +1,21 @@
-/**
-# Overview
-
-Poldercast is a multilayer based topology builder. It helps interconnect nodes
-in a peer to peer decentralized way. This _crate_ does not do the connection part.
-It only provides a way to construct the topology and how to communicate between
-nodes.
-
-This `crate` has been implemented based on the work Vinay Setty, Maarten van Steen,
-Roman Vitenberg and Spyros Voulgaris: [PolderCast: Fast, Robust and Scalable
-Architecture for P2P Topic-based Pub/Sub](https://hal.inria.fr/hal-01555561).
-However there are some slight differences in order to adapt the protocol based on
-the needs.
-
-*/
-
 #[cfg(test)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
-mod address;
-pub mod custom_layers;
 mod gossip;
-mod id;
-mod layer;
-mod logs;
-mod node;
-mod nodes;
-pub mod poldercast;
-mod policy;
+pub mod layer;
+mod priority_map;
+mod profile;
+mod profiles;
 mod topic;
 mod topology;
-mod view;
 
 pub use self::{
-    address::{Address, AddressTryFromError},
-    gossip::{Gossips, GossipsBuilder},
-    layer::Layer,
-    logs::Logs,
-    node::{Node, NodeInfo, NodeProfile, NodeProfileBuilder},
-    nodes::Count,
-    nodes::Nodes,
-    policy::{DefaultPolicy, Policy, PolicyReport, Record, Strike, StrikeReason},
-    topic::{InterestLevel, Proximity, Subscription, Subscriptions, Topic},
+    gossip::{Gossip, GossipSlice},
+    topic::{
+        InterestLevel, Subscription, SubscriptionError, SubscriptionIter, SubscriptionSlice,
+        Subscriptions, SubscriptionsSlice, Topic,
+    },
     topology::Topology,
-    view::{Selection, ViewBuilder},
 };
-
-#[allow(deprecated)]
-pub use self::id::Id;
+pub(crate) use self::{priority_map::PriorityMap, profile::Profile, profiles::Profiles};
