@@ -258,6 +258,9 @@ impl<K> Clone for KeyRef<K> {
 }
 impl<K> Copy for KeyRef<K> {}
 
+unsafe impl<K: Send, V: Send> Send for PriorityMap<K, V> {}
+unsafe impl<K: Sync, V: Sync> Sync for PriorityMap<K, V> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
