@@ -375,10 +375,52 @@ mod tests {
         }
     }
 
+    #[test]
+    fn simple_ipv4() {
+        let mut rng = Seed::from([0; Seed::SIZE]).into_rand_chacha();
+        let id = ed25519::SecretKey::new(&mut rng);
+
+        let address: SocketAddr = "127.0.0.1:9876".parse().unwrap();
+        let subscriptions = Subscriptions::new();
+
+        let gossip = Gossip::new(address, &id, subscriptions.as_slice());
+
+        let slice = gossip.as_slice();
+        let decoded = GossipSlice::try_from_slice(slice.as_ref())
+            .unwrap()
+            .to_owned();
+
+        assert_eq!(gossip.0, decoded.0);
+        assert_eq!(decoded.address(), address);
+    }
+
+    #[test]
+    fn simple_ipv6() {
+        let mut rng = Seed::from([0; Seed::SIZE]).into_rand_chacha();
+        let id = ed25519::SecretKey::new(&mut rng);
+
+        let address: SocketAddr = "[::1]:9876".parse().unwrap();
+        let subscriptions = Subscriptions::new();
+
+        let gossip = Gossip::new(address, &id, subscriptions.as_slice());
+
+        let slice = gossip.as_slice();
+        let decoded = GossipSlice::try_from_slice(slice.as_ref())
+            .unwrap()
+            .to_owned();
+
+        assert_eq!(gossip.0, decoded.0);
+        assert_eq!(decoded.address(), address);
+    }
+
     #[quickcheck]
     fn parse_valid_gossip(gossip: Gossip) -> bool {
         let slice = gossip.as_slice();
-        let _ = GossipSlice::try_from_slice(slice.as_ref()).unwrap();
+        let decoded = GossipSlice::try_from_slice(slice.as_ref())
+            .unwrap()
+            .to_owned();
+
+        assert_eq!(gossip.0, decoded.0);
         true
     }
 }
