@@ -133,8 +133,14 @@ impl Topology {
         true
     }
 
-    pub fn gossips_for(&mut self, recipient: &Profile) -> Vec<Gossip> {
+    pub fn gossips_for(&mut self, recipient: &ed25519::PublicKey) -> Vec<Gossip> {
         let mut gossips = Vec::with_capacity(1024);
+
+        let recipient = if let Some(recipient) = self.profiles.get(recipient) {
+            Arc::clone(recipient)
+        } else {
+            return gossips;
+        };
 
         let id = recipient.id();
 
@@ -150,7 +156,7 @@ impl Topology {
 
         for profile in self.view(None, Selection::Any) {
             for layer in self.gossip_layers.iter_mut() {
-                layer.populate(recipient, &profile);
+                layer.populate(recipient.as_ref(), &profile);
             }
         }
 
@@ -203,5 +209,9 @@ impl Topology {
         }
 
         profiles
+    }
+
+    pub fn get(&mut self, id: &ed25519::PublicKey) -> Option<&Arc<Profile>> {
+        self.profiles.get(id)
     }
 }

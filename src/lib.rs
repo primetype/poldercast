@@ -11,11 +11,12 @@ mod topic;
 mod topology;
 
 pub use self::{
-    gossip::{Gossip, GossipSlice},
+    gossip::{Gossip, GossipError, GossipSlice},
+    profile::Profile,
     topic::{
         InterestLevel, Subscription, SubscriptionError, SubscriptionIter, SubscriptionSlice,
         Subscriptions, SubscriptionsSlice, Topic,
     },
     topology::Topology,
 };
-pub(crate) use self::{priority_map::PriorityMap, profile::Profile, profiles::Profiles};
+pub(crate) use self::{priority_map::PriorityMap, profiles::Profiles};
