@@ -68,7 +68,7 @@ impl GossipInfo {
     fn set_num_subscriptions(&mut self, num: usize) {
         let num = num & Subscriptions::MAX_NUM_SUBSCRIPTIONS;
         self.0 &= !(Subscriptions::MAX_NUM_SUBSCRIPTIONS as u16);
-        self.0 &= num as u16;
+        self.0 |= num as u16;
     }
 
     fn set_ipv4(&mut self) {
@@ -94,18 +94,46 @@ impl GossipInfo {
         (self.0 & 0b0000_0011_1111_1111) as usize
     }
 
-    fn signature_start(&self) -> usize {
-        let subs_start = if self.is_ipv4() { 4 + 2 } else { 16 + 2 };
-        let num_subs = self.num_subscriptions();
-
-        subs_start + (num_subs * Subscription::SIZE)
+    #[inline(always)]
+    const fn ip_start(&self) -> usize {
+        TIME_END
     }
 
-    fn signature_end(&self) -> usize {
-        let subs_start = if self.is_ipv4() { 4 + 2 } else { 16 + 2 };
-        let num_subs = self.num_subscriptions();
+    #[inline(always)]
+    fn ip_end(&self) -> usize {
+        let length = if self.is_ipv4() { 4 } else { 16 };
 
-        subs_start + (num_subs * Subscription::SIZE) + ed25519::Signature::SIZE
+        self.ip_start() + length
+    }
+
+    #[inline(always)]
+    fn port_start(&self) -> usize {
+        self.ip_end()
+    }
+
+    #[inline(always)]
+    fn port_end(&self) -> usize {
+        self.port_start() + 2
+    }
+
+    #[inline(always)]
+    fn subscription_start(&self) -> usize {
+        self.port_end()
+    }
+
+    #[inline(always)]
+    fn subscription_end(&self) -> usize {
+        self.subscription_start() + (self.num_subscriptions() * Subscription::SIZE)
+    }
+
+    #[inline(always)]
+    fn signature_start(&self) -> usize {
+        self.subscription_end()
+    }
+
+    #[inline(always)]
+    fn signature_end(&self) -> usize {
+        self.signature_start() + ed25519::Signature::SIZE
     }
 }
 
@@ -122,7 +150,6 @@ impl Gossip {
         id: &ed25519::SecretKey,
         subscriptions: SubscriptionsSlice<'_>,
     ) -> Self {
-        let mut bytes = vec![0; Self::MAX_SIZE];
         let mut info = GossipInfo(0);
         info.set_num_subscriptions(subscriptions.number_subscriptions());
         if address.is_ipv4() {
@@ -131,32 +158,32 @@ impl Gossip {
             info.set_ipv6()
         }
 
+        let signature_start = info.signature_start();
+        let signature_end = info.signature_end();
+
+        let mut bytes = vec![0; signature_end];
+
         bytes[INFO_INDEX..INFO_END].copy_from_slice(&info.0.to_be_bytes());
         bytes[ID_INDEX..ID_END].copy_from_slice(id.public_key().as_ref());
         bytes[TIME_INDEX..TIME_END].copy_from_slice(&Time::now().to_be_bytes());
 
-        let (port_index, port_end) = match address.ip() {
+        match address.ip() {
             IpAddr::V4(v4) => {
                 let ip = v4.octets();
                 bytes[IPV4_INDEX..IPV4_END].copy_from_slice(&ip);
-                (IPV4_END, IPV4_END + 2)
             }
             IpAddr::V6(v6) => {
                 let ip = v6.octets();
                 bytes[IPV6_INDEX..IPV6_END].copy_from_slice(&ip);
-                (IPV6_END, IPV6_END + 2)
             }
         };
-        bytes[port_index..port_end].copy_from_slice(&address.port().to_be_bytes());
-        bytes[port_end..port_end + subscriptions.as_ref().len()]
+        bytes[info.port_start()..info.port_end()].copy_from_slice(&address.port().to_be_bytes());
+        bytes[info.subscription_start()..info.subscription_end()]
             .copy_from_slice(subscriptions.as_ref());
 
-        let signature_start = info.signature_start();
-        let signature_end = info.signature_end();
         let signature = id.sign(&bytes[..signature_start]);
         bytes[signature_start..signature_end].copy_from_slice(signature.as_ref());
 
-        bytes.resize(signature_end, 0);
         Self(bytes)
     }
 
@@ -208,7 +235,7 @@ impl<'a> GossipSlice<'a> {
         let signature = gossip.signature();
         let signed_data = gossip.signed_data();
 
-        if pk.verify(signed_data, &signature) {
+        if !pk.verify(signed_data, &signature) {
             Err(GossipError::InvalidSignature)
         } else {
             Ok(Self(slice))
