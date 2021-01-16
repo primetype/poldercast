@@ -13,12 +13,12 @@ Peer to Peer topology management
 """
 
 [dependencies]
-keynesis = "1.1.0"
+keynesis = { version = "1.1.1" }
 thiserror = "1.0"
 hex = "0.4"
 lru = "0.6"
 
 [dev-dependencies]
-quickcheck = "0.9"
-quickcheck_macros = "0.9"
+quickcheck = "1.0.3"
+quickcheck_macros = "1.0.0"
 

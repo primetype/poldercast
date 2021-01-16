@@ -360,9 +360,11 @@ mod tests {
     use quickcheck::{Arbitrary, Gen};
 
     impl Arbitrary for Gossip {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        fn arbitrary(g: &mut Gen) -> Self {
             let mut seed = [0; Seed::SIZE];
-            g.fill_bytes(&mut seed);
+            seed.iter_mut().for_each(|byte| {
+                *byte = u8::arbitrary(g);
+            });
             let mut rng = Seed::from(seed).into_rand_chacha();
 
             let address = SocketAddr::arbitrary(g);

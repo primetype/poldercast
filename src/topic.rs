@@ -364,27 +364,29 @@ mod tests {
     use quickcheck::{Arbitrary, Gen};
 
     impl Arbitrary for Topic {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        fn arbitrary(g: &mut Gen) -> Self {
             let mut topic = Topic::new([0; Self::SIZE]);
-            g.fill_bytes(&mut topic.0);
+            topic.0.iter_mut().for_each(|byte| {
+                *byte = u8::arbitrary(g);
+            });
             topic
         }
     }
 
     impl Arbitrary for InterestLevel {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        fn arbitrary(g: &mut Gen) -> Self {
             InterestLevel::new(u8::arbitrary(g))
         }
     }
 
     impl Arbitrary for Subscription {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        fn arbitrary(g: &mut Gen) -> Self {
             Self::new(Topic::arbitrary(g), InterestLevel::arbitrary(g))
         }
     }
 
     impl Arbitrary for Subscriptions {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        fn arbitrary(g: &mut Gen) -> Self {
             let mut subs = Self::new();
             let count = usize::arbitrary(g) % Subscriptions::MAX_NUM_SUBSCRIPTIONS;
 
@@ -402,7 +404,7 @@ mod tests {
     #[test]
     fn subscriptions_push_max() {
         let mut subs = Subscriptions::new();
-        let mut g = quickcheck::StdThreadGen::new(1024);
+        let mut g = quickcheck::Gen::new(1024);
         let g = &mut g;
 
         let count = Subscriptions::MAX_NUM_SUBSCRIPTIONS;
@@ -420,7 +422,7 @@ mod tests {
     #[test]
     fn subscriptions_decode_max() {
         let mut subs = vec![0; Subscription::SIZE * (Subscriptions::MAX_NUM_SUBSCRIPTIONS + 1)];
-        let mut g = quickcheck::StdThreadGen::new(1024);
+        let mut g = quickcheck::Gen::new(1024);
         let g = &mut g;
 
         let count = Subscriptions::MAX_NUM_SUBSCRIPTIONS + 1;
