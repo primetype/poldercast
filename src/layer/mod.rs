@@ -7,7 +7,7 @@ use crate::{InterestLevel, PriorityMap, Profile, Topic};
 use keynesis::key::ed25519;
 use std::collections::HashSet;
 
-pub trait Layer {
+pub trait Layer: Send {
     fn name(&self) -> &'static str;
 
     fn view(&mut self, builder: &mut ViewBuilder);
