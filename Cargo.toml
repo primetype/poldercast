@@ -13,7 +13,7 @@ Peer to Peer topology management
 """
 
 [dependencies]
-keynesis = { version = "1.1.1" }
+keynesis = { version = "1.2" }
 thiserror = "1.0"
 hex = "0.4"
 lru = "0.6"
