@@ -53,7 +53,7 @@ impl Profile {
         self.subscriptions.remove(topic);
     }
 
-    pub(crate) fn gossip(&self) -> &Gossip {
+    pub fn gossip(&self) -> &Gossip {
         &self.gossip
     }
 
