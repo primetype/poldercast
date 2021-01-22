@@ -1,5 +1,5 @@
 use std::{
-    convert::TryInto as _,
+    convert::{TryFrom, TryInto as _},
     fmt::{self, Formatter},
     iter::{DoubleEndedIterator, ExactSizeIterator, FusedIterator, Iterator},
 };
@@ -238,6 +238,16 @@ impl Default for Subscriptions {
     }
 }
 
+/* Convert ***************************************************************** */
+
+impl<'a> TryFrom<&'a [u8]> for Topic {
+    type Error = std::array::TryFromSliceError;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let bytes = value.try_into()?;
+        Ok(Topic::new(bytes))
+    }
+}
+
 /* AsRef ******************************************************************* */
 
 impl<'a> AsRef<[u8]> for SubscriptionSlice<'a> {
@@ -265,6 +275,12 @@ impl AsRef<[u8]> for Topic {
 }
 
 /* Formatter *************************************************************** */
+
+impl fmt::Display for Topic {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        hex::encode(self.as_ref()).fmt(f)
+    }
+}
 
 impl fmt::Debug for Topic {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
