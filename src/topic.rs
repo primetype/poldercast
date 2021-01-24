@@ -2,6 +2,7 @@ use std::{
     convert::{TryFrom, TryInto as _},
     fmt::{self, Formatter},
     iter::{DoubleEndedIterator, ExactSizeIterator, FusedIterator, Iterator},
+    str::FromStr,
 };
 use thiserror::Error;
 
@@ -248,6 +249,15 @@ impl<'a> TryFrom<&'a [u8]> for Topic {
     }
 }
 
+impl FromStr for Topic {
+    type Err = hex::FromHexError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut topic = [0; Topic::SIZE];
+        hex::decode_to_slice(s, &mut topic)?;
+        Ok(Self(topic))
+    }
+}
+
 /* AsRef ******************************************************************* */
 
 impl<'a> AsRef<[u8]> for SubscriptionSlice<'a> {
@@ -450,6 +460,27 @@ mod tests {
             .expect_err("Should have a max size reached error");
     }
 
+    #[test]
+    fn topic_from_str() {
+        let topic = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+        let _topic = Topic::from_str(topic).unwrap();
+    }
+
+    #[test]
+    fn topic_to_string() {
+        let topic = [
+            1, 35, 69, 103, 137, 171, 205, 239, 1, 35, 69, 103, 137, 171, 205, 239, 1, 35, 69, 103,
+            137, 171, 205, 239, 1, 35, 69, 103, 137, 171, 205, 239,
+        ];
+        let topic = Topic::new(topic).to_string();
+
+        debug_assert_eq!(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            topic,
+        )
+    }
+
     #[quickcheck]
     fn parse_valid_subscription(sub: Subscription) -> bool {
         let slice = sub.as_slice();
@@ -462,5 +493,13 @@ mod tests {
         let slice = subs.as_slice();
         let _ = SubscriptionsSlice::try_from_slice(slice.as_ref()).unwrap();
         true
+    }
+
+    #[quickcheck]
+    fn to_string_from_str(topic: Topic) -> bool {
+        let s = topic.to_string();
+        let t: Topic = s.parse().unwrap();
+
+        topic == t
     }
 }
