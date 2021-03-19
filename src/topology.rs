@@ -218,4 +218,8 @@ impl Topology {
     pub fn peers(&self) -> &Profiles {
         &self.profiles
     }
+
+    pub fn self_profile(&self) -> &Profile {
+        &self.profile
+    }
 }
