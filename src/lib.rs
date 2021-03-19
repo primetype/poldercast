@@ -10,11 +10,11 @@ mod profiles;
 mod topic;
 mod topology;
 
-pub(crate) use self::profiles::Profiles;
 pub use self::{
     gossip::{Gossip, GossipError, GossipSlice},
     priority_map::PriorityMap,
     profile::Profile,
+    profiles::Profiles,
     topic::{
         InterestLevel, Subscription, SubscriptionError, SubscriptionIter, SubscriptionSlice,
         Subscriptions, SubscriptionsSlice, Topic,
