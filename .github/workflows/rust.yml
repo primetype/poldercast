@@ -16,15 +16,15 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable, nightly]
+        rust: [stable, latest, nightly]
     runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set-up Rust
-      uses: actions-rs/install@v0.1
+    - name: Setup Rust
+      uses: ATiltedTree/setup-rust@v1.0.4
       with:
-        version: ${{ matrix.rust }}
+        rust-version: ${{ matrix.rust }}
     - name: Build
       run: cargo build --verbose
     - name: Build examples
