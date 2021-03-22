@@ -4,9 +4,9 @@ use lru::LruCache;
 use std::sync::Arc;
 
 pub struct Profiles {
-    pub dirty: LruCache<ed25519::PublicKey, Arc<Profile>>,
-    pub pool: LruCache<ed25519::PublicKey, Arc<Profile>>,
-    pub trusted: LruCache<ed25519::PublicKey, Arc<Profile>>,
+    pub(crate) dirty: LruCache<ed25519::PublicKey, Arc<Profile>>,
+    pub(crate) pool: LruCache<ed25519::PublicKey, Arc<Profile>>,
+    pub(crate) trusted: LruCache<ed25519::PublicKey, Arc<Profile>>,
 }
 
 impl Profiles {
@@ -16,6 +16,18 @@ impl Profiles {
             pool: LruCache::new(pool),
             trusted: LruCache::new(trusted),
         }
+    }
+
+    pub fn dirty(&self) -> &LruCache<ed25519::PublicKey, Arc<Profile>> {
+        &self.dirty
+    }
+
+    pub fn pool(&self) -> &LruCache<ed25519::PublicKey, Arc<Profile>> {
+        &self.pool
+    }
+
+    pub fn trusted(&self) -> &LruCache<ed25519::PublicKey, Arc<Profile>> {
+        &self.trusted
     }
 
     pub fn promote(&mut self, entry: &ed25519::PublicKey) {
