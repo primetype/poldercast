@@ -214,4 +214,12 @@ impl Topology {
     pub fn get(&mut self, id: &ed25519::PublicKey) -> Option<&Arc<Profile>> {
         self.profiles.get(id)
     }
+
+    pub fn peers(&self) -> &Profiles {
+        &self.profiles
+    }
+
+    pub fn self_profile(&self) -> &Profile {
+        &self.profile
+    }
 }

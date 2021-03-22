@@ -18,6 +18,18 @@ impl Profiles {
         }
     }
 
+    pub fn dirty(&self) -> &LruCache<ed25519::PublicKey, Arc<Profile>> {
+        &self.dirty
+    }
+
+    pub fn pool(&self) -> &LruCache<ed25519::PublicKey, Arc<Profile>> {
+        &self.pool
+    }
+
+    pub fn trusted(&self) -> &LruCache<ed25519::PublicKey, Arc<Profile>> {
+        &self.trusted
+    }
+
     pub fn promote(&mut self, entry: &ed25519::PublicKey) {
         if let Some(profile) = self.pool.pop(entry) {
             // if there is an overflow coming up, instead of losing
