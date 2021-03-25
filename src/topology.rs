@@ -16,23 +16,19 @@ struct DefaultBuilder;
 
 impl LayerBuilder for DefaultBuilder {
     fn build_for_view(&self) -> Vec<Box<dyn Layer>> {
-        let mut layers: Vec<Box<dyn Layer>> = Vec::with_capacity(3);
-
-        layers.push(Box::new(layer::Rings::new(4)));
-        layers.push(Box::new(layer::Vicinity::new(20)));
-        layers.push(Box::new(layer::Cyclon::new(20)));
-
-        layers
+        vec![
+            Box::new(layer::Rings::new(4)),
+            Box::new(layer::Vicinity::new(20)),
+            Box::new(layer::Cyclon::new(20)),
+        ]
     }
 
     fn build_for_gossip(&self) -> Vec<Box<dyn Layer>> {
-        let mut layers: Vec<Box<dyn Layer>> = Vec::with_capacity(3);
-
-        layers.push(Box::new(layer::Rings::new(10)));
-        layers.push(Box::new(layer::Vicinity::new(10)));
-        layers.push(Box::new(layer::Cyclon::new(10)));
-
-        layers
+        vec![
+            Box::new(layer::Rings::new(10)),
+            Box::new(layer::Vicinity::new(10)),
+            Box::new(layer::Cyclon::new(10)),
+        ]
     }
 }
 
