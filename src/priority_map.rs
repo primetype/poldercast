@@ -284,6 +284,19 @@ mod tests {
     }
 
     #[test]
+    fn remove() {
+        let mut map = PriorityMap::<u32, String>::new(10);
+
+        let priority = 1;
+        let entry = "entry".to_owned();
+
+        map.put(priority, entry.clone());
+        map.put(priority, entry.clone());
+
+        assert!(map.remove(&entry));
+    }
+
+    #[test]
     fn ignoring_lower_than_lower_bound() {
         let mut map = PriorityMap::<u32, String>::new(5);
         map.put(3, "3".to_owned());
