@@ -148,6 +148,8 @@ where
             }
         }
 
+        self.remove(&value);
+
         let entry = Entry::new(key, value);
         let mut entry = Box::new(entry);
         let mut entry_ptr: NonNull<Entry<K, V>> = unsafe { NonNull::new_unchecked(entry.as_mut()) };
@@ -155,24 +157,6 @@ where
         let k = KeyRef { k: keyref };
         let keyref: NonNull<V> = unsafe { NonNull::new_unchecked(&mut (entry_ptr.as_mut()).value) };
         let v = KeyRef { k: keyref };
-
-        if let Some(mut prev) = self.by_value.remove(unsafe { v.k.as_ref() }) {
-            let keyref: NonNull<K> = unsafe { NonNull::new_unchecked(&mut prev.key) };
-            let k = KeyRef { k: keyref };
-            let keyref: NonNull<V> = unsafe { NonNull::new_unchecked(&mut prev.value) };
-            let v = KeyRef { k: keyref };
-
-            // if we have updated the priority of the value we need to also change it
-            // in the previous version of the `by_priority`
-            if let btree_map::Entry::Occupied(mut occupied) = self.by_priority.entry(k) {
-                occupied.get_mut().pop(&v);
-
-                // make sure we don't keep empty priority entries
-                if occupied.get().is_empty() {
-                    occupied.remove();
-                }
-            }
-        }
 
         if self.by_value.insert(v, entry).is_some() {
             panic!("the previous entry (if any) should have been removed already");
