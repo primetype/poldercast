@@ -2,9 +2,12 @@ use std::{
     borrow::Borrow,
     cmp::Ordering,
     collections::{btree_map, hash_map::RandomState, BTreeMap, HashMap},
+    fmt,
     hash::{BuildHasher, Hash, Hasher},
+    ptr::NonNull,
 };
 
+#[derive(Debug)]
 struct Entry<K, V> {
     key: K,
     value: V,
@@ -12,10 +15,10 @@ struct Entry<K, V> {
 
 #[doc(hidden)]
 pub struct KeyRef<K> {
-    k: *const K,
+    k: NonNull<K>,
 }
 
-type PriorityGroup<K, V> = lru::LruCache<KeyRef<V>, *mut Entry<K, V>>;
+type PriorityGroup<K, V> = lru::LruCache<KeyRef<V>, NonNull<Entry<K, V>>>;
 
 pub struct PriorityMap<K, V, H = RandomState> {
     by_value: HashMap<KeyRef<V>, Box<Entry<K, V>>, H>,
@@ -87,9 +90,9 @@ where
         Q: Hash + Eq + ?Sized,
     {
         if let Some(mut entry) = self.by_value.remove(v) {
-            let keyref: *mut K = &mut entry.key;
+            let keyref: NonNull<K> = unsafe { NonNull::new_unchecked(&mut entry.key) };
             let k = KeyRef { k: keyref };
-            let keyref: *mut V = &mut entry.value;
+            let keyref: NonNull<V> = unsafe { NonNull::new_unchecked(&mut entry.value) };
             let v = KeyRef { k: keyref };
 
             if let btree_map::Entry::Occupied(mut occupied) = self.by_priority.entry(k) {
@@ -111,7 +114,10 @@ where
             .values()
             .rev()
             .flat_map(|v| v.iter())
-            .map(|(_, v)| unsafe { (&(**v).key, &(**v).value) })
+            .map(|(_, v)| {
+                let p = unsafe { v.as_ref() };
+                (&p.key, &p.value)
+            })
     }
 
     pub fn get<Q>(&self, k: &Q) -> Option<(&'_ K, &'_ V)>
@@ -132,7 +138,7 @@ where
             //
             // if this is the case, return now and don't add the entry
             if let Some((lowest, _)) = self.by_priority.iter().next() {
-                if unsafe { lowest.k.as_ref() }.unwrap() > &key {
+                if unsafe { lowest.k.as_ref() } > &key {
                     return;
                 }
             }
@@ -144,14 +150,16 @@ where
 
         let entry = Entry::new(key, value);
         let mut entry = Box::new(entry);
-        let entry_ptr: *mut Entry<K, V> = &mut *entry;
-        let keyref: *mut K = unsafe { &mut (*entry_ptr).key };
+        let mut entry_ptr: NonNull<Entry<K, V>> = unsafe { NonNull::new_unchecked(entry.as_mut()) };
+        let keyref: NonNull<K> = unsafe { NonNull::new_unchecked(&mut (entry_ptr.as_mut()).key) };
         let k = KeyRef { k: keyref };
-        let keyref: *mut V = unsafe { &mut (*entry_ptr).value };
+        let keyref: NonNull<V> = unsafe { NonNull::new_unchecked(&mut (entry_ptr.as_mut()).value) };
         let v = KeyRef { k: keyref };
 
-        if let Some(mut prev) = self.by_value.insert(v, entry) {
-            let keyref: *mut V = &mut prev.value;
+        if let Some(mut prev) = self.by_value.remove(unsafe { v.k.as_ref() }) {
+            let keyref: NonNull<K> = unsafe { NonNull::new_unchecked(&mut prev.key) };
+            let k = KeyRef { k: keyref };
+            let keyref: NonNull<V> = unsafe { NonNull::new_unchecked(&mut prev.value) };
             let v = KeyRef { k: keyref };
 
             // if we have updated the priority of the value we need to also change it
@@ -165,6 +173,11 @@ where
                 }
             }
         }
+
+        if self.by_value.insert(v, entry).is_some() {
+            panic!("the previous entry (if any) should have been removed already");
+        }
+
         self.by_priority
             .entry(k)
             .or_insert_with(lru::LruCache::unbounded)
@@ -219,15 +232,21 @@ where
     }
 }
 
+impl<K: fmt::Debug> fmt::Debug for KeyRef<K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unsafe { self.k.as_ref().fmt(f) }
+    }
+}
+
 impl<K: Hash> Hash for KeyRef<K> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        unsafe { (*self.k).hash(state) }
+        unsafe { self.k.as_ref().hash(state) }
     }
 }
 
 impl<K: PartialEq> PartialEq for KeyRef<K> {
     fn eq(&self, other: &KeyRef<K>) -> bool {
-        unsafe { (*self.k).eq(&*other.k) }
+        unsafe { self.k.as_ref().eq(other.k.as_ref()) }
     }
 }
 
@@ -235,19 +254,19 @@ impl<K: Eq> Eq for KeyRef<K> {}
 
 impl<K: PartialOrd> PartialOrd for KeyRef<K> {
     fn partial_cmp(&self, other: &KeyRef<K>) -> Option<Ordering> {
-        unsafe { (*self.k).partial_cmp(&*other.k) }
+        unsafe { self.k.as_ref().partial_cmp(other.k.as_ref()) }
     }
 }
 
 impl<K: Ord> Ord for KeyRef<K> {
     fn cmp(&self, other: &Self) -> Ordering {
-        unsafe { (*self.k).cmp(&*other.k) }
+        unsafe { self.k.as_ref().cmp(other.k.as_ref()) }
     }
 }
 
 impl<K> Borrow<K> for KeyRef<K> {
     fn borrow(&self) -> &K {
-        unsafe { &*self.k }
+        unsafe { self.k.as_ref() }
     }
 }
 
@@ -291,7 +310,9 @@ mod tests {
         let entry = "entry".to_owned();
 
         map.put(priority, entry.clone());
+        dbg!(&map.by_value);
         map.put(priority, entry.clone());
+        dbg!(&map.by_value);
 
         assert!(map.remove(&entry));
     }
