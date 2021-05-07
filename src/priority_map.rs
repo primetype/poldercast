@@ -1,31 +1,31 @@
 use std::{
     borrow::Borrow,
-    cmp::Ordering,
     collections::{btree_map, hash_map::RandomState, BTreeMap, HashMap},
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher, Hash},
+    ptr::NonNull,
+    rc::Rc,
 };
 
+#[derive(Debug)]
 struct Entry<K, V> {
-    key: K,
-    value: V,
+    key: Rc<K>,
+    value: Rc<V>,
 }
 
-#[doc(hidden)]
-pub struct KeyRef<K> {
-    k: *const K,
-}
-
-type PriorityGroup<K, V> = lru::LruCache<KeyRef<V>, *mut Entry<K, V>>;
+type PriorityGroup<K, V> = lru::LruCache<Rc<V>, NonNull<Entry<K, V>>>;
 
 pub struct PriorityMap<K, V, H = RandomState> {
-    by_value: HashMap<KeyRef<V>, Box<Entry<K, V>>, H>,
-    by_priority: BTreeMap<KeyRef<K>, PriorityGroup<K, V>>,
+    by_value: HashMap<Rc<V>, Box<Entry<K, V>>, H>,
+    by_priority: BTreeMap<Rc<K>, PriorityGroup<K, V>>,
     cap: usize,
 }
 
 impl<K, V> Entry<K, V> {
     fn new(key: K, value: V) -> Entry<K, V> {
-        Self { key, value }
+        Self {
+            key: Rc::new(key),
+            value: Rc::new(value),
+        }
     }
 }
 
@@ -49,7 +49,7 @@ where
         Self::new_with_map(cap, HashMap::with_capacity_and_hasher(cap, hash_builder))
     }
 
-    fn new_with_map(cap: usize, by_value: HashMap<KeyRef<V>, Box<Entry<K, V>>, H>) -> Self {
+    fn new_with_map(cap: usize, by_value: HashMap<Rc<V>, Box<Entry<K, V>>, H>) -> Self {
         assert!(
             cap > 0,
             "Cannot do much with a cap set to 0, have at least 1 entry or use a different type"
@@ -75,7 +75,7 @@ where
 
     pub fn contains<Q>(&self, k: &Q) -> bool
     where
-        KeyRef<V>: Borrow<Q>,
+        Rc<V>: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
         self.by_value.contains_key(k)
@@ -83,14 +83,12 @@ where
 
     pub fn remove<Q>(&mut self, v: &Q) -> bool
     where
-        KeyRef<V>: Borrow<Q>,
+        Rc<V>: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        if let Some(mut entry) = self.by_value.remove(v) {
-            let keyref: *mut K = &mut entry.key;
-            let k = KeyRef { k: keyref };
-            let keyref: *mut V = &mut entry.value;
-            let v = KeyRef { k: keyref };
+        if let Some(entry) = self.by_value.remove(v) {
+            let k = entry.key.clone();
+            let v = entry.value.clone();
 
             if let btree_map::Entry::Occupied(mut occupied) = self.by_priority.entry(k) {
                 occupied.get_mut().pop(&v);
@@ -111,12 +109,15 @@ where
             .values()
             .rev()
             .flat_map(|v| v.iter())
-            .map(|(_, v)| unsafe { (&(**v).key, &(**v).value) })
+            .map(|(_, v)| {
+                let p = unsafe { v.as_ref() };
+                (p.key.borrow(), p.value.borrow())
+            })
     }
 
     pub fn get<Q>(&self, k: &Q) -> Option<(&'_ K, &'_ V)>
     where
-        KeyRef<V>: Borrow<Q>,
+        Rc<V>: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
         let e = self.by_value.get(k)?;
@@ -132,7 +133,7 @@ where
             //
             // if this is the case, return now and don't add the entry
             if let Some((lowest, _)) = self.by_priority.iter().next() {
-                if unsafe { lowest.k.as_ref() }.unwrap() > &key {
+                if lowest.as_ref() > &key {
                     return;
                 }
             }
@@ -142,29 +143,18 @@ where
             }
         }
 
+        self.remove(&value);
+
         let entry = Entry::new(key, value);
         let mut entry = Box::new(entry);
-        let entry_ptr: *mut Entry<K, V> = &mut *entry;
-        let keyref: *mut K = unsafe { &mut (*entry_ptr).key };
-        let k = KeyRef { k: keyref };
-        let keyref: *mut V = unsafe { &mut (*entry_ptr).value };
-        let v = KeyRef { k: keyref };
+        let entry_ptr: NonNull<Entry<K, V>> = unsafe { NonNull::new_unchecked(entry.as_mut()) };
+        let k = entry.key.clone();
+        let v = entry.value.clone();
 
-        if let Some(mut prev) = self.by_value.insert(v, entry) {
-            let keyref: *mut V = &mut prev.value;
-            let v = KeyRef { k: keyref };
-
-            // if we have updated the priority of the value we need to also change it
-            // in the previous version of the `by_priority`
-            if let btree_map::Entry::Occupied(mut occupied) = self.by_priority.entry(k) {
-                occupied.get_mut().pop(&v);
-
-                // make sure we don't keep empty priority entries
-                if occupied.get().is_empty() {
-                    occupied.remove();
-                }
-            }
+        if self.by_value.insert(v.clone(), entry).is_some() {
+            panic!("the previous entry (if any) should have been removed already");
         }
+
         self.by_priority
             .entry(k)
             .or_insert_with(lru::LruCache::unbounded)
@@ -185,15 +175,15 @@ where
         self.cap = cap;
     }
 
-    fn lower_bound(&self) -> Option<KeyRef<K>> {
+    fn lower_bound(&self) -> Option<Rc<K>> {
         if let Some((k, _)) = self.by_priority.iter().next() {
-            Some(KeyRef { k: k.k })
+            Some(k.clone())
         } else {
             None
         }
     }
 
-    pub fn pop_lowest(&mut self) -> Option<(K, V)> {
+    pub fn pop_lowest(&mut self) -> Option<(Rc<K>, Rc<V>)> {
         let k = self.lower_bound()?;
 
         if let btree_map::Entry::Occupied(mut occupied) = self.by_priority.entry(k) {
@@ -219,45 +209,6 @@ where
     }
 }
 
-impl<K: Hash> Hash for KeyRef<K> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        unsafe { (*self.k).hash(state) }
-    }
-}
-
-impl<K: PartialEq> PartialEq for KeyRef<K> {
-    fn eq(&self, other: &KeyRef<K>) -> bool {
-        unsafe { (*self.k).eq(&*other.k) }
-    }
-}
-
-impl<K: Eq> Eq for KeyRef<K> {}
-
-impl<K: PartialOrd> PartialOrd for KeyRef<K> {
-    fn partial_cmp(&self, other: &KeyRef<K>) -> Option<Ordering> {
-        unsafe { (*self.k).partial_cmp(&*other.k) }
-    }
-}
-
-impl<K: Ord> Ord for KeyRef<K> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        unsafe { (*self.k).cmp(&*other.k) }
-    }
-}
-
-impl<K> Borrow<K> for KeyRef<K> {
-    fn borrow(&self) -> &K {
-        unsafe { &*self.k }
-    }
-}
-
-impl<K> Clone for KeyRef<K> {
-    fn clone(&self) -> Self {
-        Self { k: self.k }
-    }
-}
-impl<K> Copy for KeyRef<K> {}
-
 unsafe impl<K: Send, V: Send> Send for PriorityMap<K, V> {}
 unsafe impl<K: Sync, V: Sync> Sync for PriorityMap<K, V> {}
 
@@ -281,6 +232,25 @@ mod tests {
         map.put(1, "entry".to_owned());
 
         assert!(map.contains(&"entry".to_owned()));
+    }
+
+    #[test]
+    fn remove() {
+        let mut map = PriorityMap::<u32, String>::new(10);
+
+        let priority = 1;
+        let entry1 = "entry1".to_owned();
+        let entry2 = "entry2".to_owned();
+
+        map.put(priority, entry1.clone());
+        map.put(priority, entry1.clone());
+
+        assert!(map.remove(&entry1));
+
+        map.put(priority, entry1);
+        map.put(priority, entry2.clone());
+
+        assert!(map.remove(&entry2));
     }
 
     #[test]
